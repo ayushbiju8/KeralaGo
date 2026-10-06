@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+*.sqlite3
+
+# Node / React Native / Expo
+node_modules/
+app/node_modules/
+.expo/
+app/.expo/
+dist/
+web-build/
+*.orig.*
+.claude/
+app/.claude/
+
+# IDE / OS
+.vscode/
+app/.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.local
+*.env
