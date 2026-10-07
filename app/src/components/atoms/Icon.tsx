@@ -10,11 +10,13 @@
  */
 
 import React from 'react';
-import { StyleProp, ViewStyle } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import Feather from '@expo/vector-icons/Feather';
+import { StyleProp, TextStyle } from 'react-native';
+import {
+  Ionicons,
+  MaterialIcons,
+  MaterialCommunityIcons,
+  Feather,
+} from '@expo/vector-icons';
 import { Colors, IconSize, IconSizeKey } from '../../constants/theme';
 
 export type IconLibrary = 'Ionicons' | 'MaterialIcons' | 'MaterialCommunityIcons' | 'Feather';
@@ -29,7 +31,7 @@ export interface IconProps {
   /** Icon color */
   color?: string;
   /** Container style */
-  style?: StyleProp<ViewStyle>;
+  style?: StyleProp<TextStyle>;
 }
 
 const Icon: React.FC<IconProps> = ({
@@ -45,7 +47,7 @@ const Icon: React.FC<IconProps> = ({
     name: name as any,
     size: resolvedSize,
     color,
-    style,
+    style: style as any,
   };
 
   switch (library) {
