@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>KeralaGO — Mobile Frontend Routing & Authorization Specification</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 15mm;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #1f2937;
+      background: #ffffff;
+      line-height: 1.5;
+      font-size: 11pt;
+      margin: 0;
+      padding: 0;
+    }
+    .header {
+      border-bottom: 2px solid #0284c7;
+      padding-bottom: 12px;
+      margin-bottom: 20px;
+    }
+    .header h1 {
+      margin: 0 0 6px 0;
+      color: #0369a1;
+      font-size: 20pt;
+      letter-spacing: -0.5px;
+    }
+    .meta-box {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin-bottom: 20px;
+      font-size: 9.5pt;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .meta-item strong {
+      color: #166534;
+    }
+    h2 {
+      color: #0f172a;
+      font-size: 13pt;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 4px;
+      margin-top: 24px;
+      margin-bottom: 10px;
+      page-break-after: avoid;
+    }
+    p {
+      margin: 0 0 10px 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+      font-size: 8.5pt;
+      page-break-inside: auto;
+    }
+    tr {
+      page-break-inside: avoid;
+      page-break-after: auto;
+    }
+    th {
+      background: #0f172a;
+      color: #ffffff;
+      text-align: left;
+      padding: 7px 8px;
+      font-weight: 600;
+      border: 1px solid #0f172a;
+    }
+    td {
+      padding: 6px 8px;
+      border: 1px solid #e2e8f0;
+      vertical-align: top;
+    }
+    tr:nth-child(even) {
+      background: #f8fafc;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 7.5pt;
+      font-weight: 600;
+    }
+    .badge-public {
+      background: #fef2f2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+    }
+    .badge-auth {
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+    }
+    .badge-user {
+      background: #eff6ff;
+      color: #1e40af;
+      border: 1px solid #bfdbfe;
+    }
+    .badge-driver {
+      background: #fefce8;
+      color: #854d0e;
+      border: 1px solid #fef08a;
+    }
+    .badge-shared {
+      background: #f3e8ff;
+      color: #6b21a8;
+      border: 1px solid #e9d5ff;
+    }
+    .code-tree {
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 12px 14px;
+      border-radius: 6px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 8pt;
+      line-height: 1.4;
+      white-space: pre;
+      margin-bottom: 20px;
+      page-break-inside: avoid;
+    }
+    .checklist {
+      list-style: none;
+      padding-left: 0;
+      margin: 0;
+      font-size: 9.5pt;
+    }
+    .checklist li {
+      margin-bottom: 6px;
+      padding-left: 20px;
+      position: relative;
+    }
+    .checklist li::before {
+      content: "✔";
+      color: #059669;
+      position: absolute;
+      left: 0;
+      font-weight: bold;
+    }
+    .group-header {
+      background: #e2e8f0;
+      font-weight: bold;
+      color: #1e293b;
+      padding: 6px 8px;
+    }
+    .footer {
+      margin-top: 30px;
+      border-top: 1px solid #cbd5e1;
+      padding-top: 8px;
+      font-size: 8pt;
+      color: #64748b;
+      display: flex;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>KeralaGO — Frontend Routing & Security Specification</h1>
+    <p style="margin:0; color:#64748b; font-size:10pt;">Production-Ready Screen Navigation, Role-Based Access Control & Architecture Blueprint</p>
+  </div>
+
+  <div class="meta-box">
+    <div class="meta-item"><strong>Framework:</strong> React Native / Expo Router v4</div>
+    <div class="meta-item"><strong>App Root:</strong> <code>app/src/app</code></div>
+    <div class="meta-item"><strong>Auth:</strong> JWT Bearer Token (SecureStore)</div>
+    <div class="meta-item"><strong>Roles:</strong> <code>USER</code> (Customer) | <code>DRIVER</code> (Partner)</div>
+  </div>
+
+  <h2>1. Role-Based Access Control (RBAC) Architecture</h2>
+  <p>The mobile app implements a strict two-tier route guard at root <code>_layout.tsx</code>:</p>
+  <ul>
+    <li><strong>Authentication Check:</strong> Validates presence of a non-expired JWT Access Token stored in <code>expo-secure-store</code>. If expired, triggers auto-refresh. If unauthenticated, user is restricted strictly to the <code>(auth)</code> group.</li>
+    <li><strong>Role Separation:</strong> Users with role <code>USER</code> are restricted strictly to <code>(customer)/*</code>. Drivers with role <code>DRIVER</code> are checked for KYC approval (<code>PENDING</code> directs to onboarding; <code>APPROVED</code> unlocks operational duty).</li>
+  </ul>
+
+  <h2>2. Complete Screen Navigation & Authorization Matrix</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 25%;">Expo Route Path</th>
+        <th style="width: 18%;">Screen Name</th>
+        <th style="width: 12%;">Auth State</th>
+        <th style="width: 14%;">Role Guard</th>
+        <th style="width: 31%;">Purpose & Functional Details</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td colspan="5" class="group-header">Authentication Group (Public / Onboarding)</td>
+      </tr>
+      <tr>
+        <td><code>/index</code></td>
+        <td>Gatekeeper</td>
+        <td><span class="badge badge-public">Public</span></td>
+        <td>None</td>
+        <td>Splash screen & initial session routing</td>
+      </tr>
+      <tr>
+        <td><code>/(auth)/welcome</code></td>
+        <td>Welcome Screen</td>
+        <td><span class="badge badge-public">Public</span></td>
+        <td>None</td>
+        <td>App introduction walkthrough carousel (Malayalam/English)</td>
+      </tr>
+      <tr>
+        <td><code>/(auth)/login</code></td>
+        <td>Phone Login</td>
+        <td><span class="badge badge-public">Public</span></td>
+        <td>None</td>
+        <td>10-digit mobile number input with OTP dispatch trigger</td>
+      </tr>
+      <tr>
+        <td><code>/(auth)/otp-verify</code></td>
+        <td>OTP Verification</td>
+        <td><span class="badge badge-public">Public</span></td>
+        <td>None</td>
+        <td>4-digit OTP code entry with 60-second resend countdown</td>
+      </tr>
+      <tr>
+        <td><code>/(auth)/register-profile</code></td>
+        <td>Complete Profile</td>
+        <td><span class="badge badge-public">Post-OTP</span></td>
+        <td>None</td>
+        <td>First-time user onboarding (name, role selection)</td>
+      </tr>
+
+      <tr>
+        <td colspan="5" class="group-header">Customer / Passenger Group (Protected: USER)</td>
+      </tr>
+      <tr>
+        <td><code>/(customer)/(tabs)/home</code></td>
+        <td>Map & Hail Home</td>
+        <td><span class="badge badge-auth">Protected</span></td>
+        <td><span class="badge badge-user">USER</span></td>
+        <td>Live map, pickup locator, recent destinations, "Where to?"</td>
+      </tr>
+      <tr>
+        <td><code>/(customer)/search-location</code></td>
+        <td>Address Search</td>
+        <td><span class="badge badge-auth">Protected</span></td>
+        <td><span class="badge badge-user">USER</span></td>
+        <td>Places autocomplete, saved home/work locations</td>
+      </tr>
+      <tr>
+        <td><code>/(customer)/select-vehicle</code></td>
+        <td>Vehicle & Fare Selection</td>
+        <td><span class="badge badge-auth">Protected</span></td>
+        <td><span class="badge badge-user">USER</span></td>
+        <td>Vehicle category cards (AUTO, SEDAN, SUV), fare quotes, ETA</td>
+      </tr>
+      <tr>
+        <td><code>/(customer)/confirm-pickup</code></td>
+        <td>Confirm Booking</td>
+        <td><span class="badge badge-auth">Protected</span></td>
+        <td><span class="badge badge-user">USER</span></td>
+        <td>Exact pin positioning, payment toggle (CASH/UPI), book button</td>
+      </tr>
+      <tr>
+        <td><code>/(customer)/searching-driver</code></td>
+        <td>Driver Radar</td>
+        <td><span class="badge badge-auth">Protected</span></td>
+        <td><span class="badge badge-user">USER</span></td>
+        <td>Radar animation, nearby driver broadcast, cancel CTA</td>
+      </tr>
+      <tr>
+        <td><code>/(customer)/active-ride</code></td>
+        <td>Live Ride Tracking</td>
+        <td><span class="badge badge-auth">Protected</span></td>
+        <td><span class="badge badge-user">USER</span></td>
+        <td>Live driver GPS trail, <strong>4-digit Trip PIN</strong>, live ETA, SOS</td>
+      </tr>
+      <tr>
+        <td><code>/(customer)/ride-completed</code></td>
+        <td>Fare Receipt & Rating</td>
+        <td><span class="badge badge-auth">Protected</span></td>
+        <td><span class="badge badge-user">USER</span></td>
+        <td>Gross fare breakdown, payment status, bilateral 1–5★ review</td>
+      </tr>
+      <tr>
+        <td><code>/(customer)/(tabs)/activity</code></td>
+        <td>Past Trips</td>
+        <td><span class="badge badge-auth">Protected</span></td>
+        <td><span class="badge badge-user">USER</span></td>
+        <td>Historical list of completed and cancelled trips</td>
+      </tr>
+      <tr>
+        <td><code>/(customer)/emergency-contacts</code></td>
+        <td>Emergency Contacts</td>
+        <td><span class="badge badge-auth">Protected</span></td>
+        <td><span class="badge badge-user">USER</span></td>
+        <td>Manage primary and secondary safety emergency contacts</td>
+      </tr>
+
+      <tr>
+        <td colspan="5" class="group-header">Driver Partner Group (Protected: DRIVER)</td>
+      </tr>
+      <tr>
+        <td><code>/(driver)/onboarding/license</code></td>
+        <td>License Upload</td>
+        <td><span class="badge badge-auth">Protected</span></td>
+        <td><span class="badge badge-driver">DRIVER</span></td>
+        <td>Driver license number input & document photo upload</td>
+      </tr>
+      <tr>
+        <td><code>/(driver)/onboarding/vehicle</code></td>
+        <td>Vehicle Registration</td>
+        <td><span class="badge badge-auth">Protected</span></td>
+        <td><span class="badge badge-driver">DRIVER</span></td>
+        <td>Vehicle plate, make, model, capacity & category selection</td>
+      </tr>
+      <tr>
+        <td><code>/(driver)/onboarding/status</code></td>
+        <td>KYC Status Review</td>
+        <td><span class="badge badge-auth">Protected</span></td>
+        <td><span class="badge badge-driver">DRIVER</span></td>
+        <td>Under review status screen or rejection reason alert</td>
+      </tr>
+      <tr>
+        <td><code>/(driver)/(tabs)/dashboard</code></td>
+        <td>Driver Duty Console</td>
+        <td><span class="badge badge-auth">Protected</span></td>
+        <td><span class="badge badge-driver">Approved</span></td>
+        <td><strong>Online/Offline Switch</strong>, live demand heatmap, daily total</td>
+      </tr>
+      <tr>
+        <td><code>/(driver)/incoming-request</code></td>
+        <td>Ride Offer Overlay</td>
+        <td><span class="badge badge-auth">Protected</span></td>
+        <td><span class="badge badge-driver">Approved</span></td>
+        <td>15-second countdown alert, pickup distance, estimated fare</td>
+      </tr>
+      <tr>
+        <td><code>/(driver)/navigate-pickup</code></td>
+        <td>Navigation to Pickup</td>
+        <td><span class="badge badge-auth">Protected</span></td>
+        <td><span class="badge badge-driver">Approved</span></td>
+        <td>Turn-by-turn routing, "Arrived at Pickup" action button</td>
+      </tr>
+      <tr>
+        <td><code>/(driver)/verify-pin</code></td>
+        <td>Trip Start PIN Modal</td>
+        <td><span class="badge badge-auth">Protected</span></td>
+        <td><span class="badge badge-driver">Approved</span></td>
+        <td>4-digit customer PIN input required before trip starts</td>
+      </tr>
+      <tr>
+        <td><code>/(driver)/in-trip</code></td>
+        <td>Trip in Progress</td>
+        <td><span class="badge badge-auth">Protected</span></td>
+        <td><span class="badge badge-driver">Approved</span></td>
+        <td>Live destination route, live speed, "Complete Ride" slider</td>
+      </tr>
+      <tr>
+        <td><code>/(driver)/trip-summary</code></td>
+        <td>Settlement Receipt</td>
+        <td><span class="badge badge-auth">Protected</span></td>
+        <td><span class="badge badge-driver">Approved</span></td>
+        <td>Gross fare, platform fee, driver net earnings, cash collected</td>
+      </tr>
+      <tr>
+        <td><code>/(driver)/(tabs)/earnings</code></td>
+        <td>Ledger & Earnings</td>
+        <td><span class="badge badge-auth">Protected</span></td>
+        <td><span class="badge badge-driver">Approved</span></td>
+        <td>Weekly graph, double-entry ledger audit history, withdrawal CTA</td>
+      </tr>
+
+      <tr>
+        <td colspan="5" class="group-header">Shared Modal Group (Protected / Cross-Role)</td>
+      </tr>
+      <tr>
+        <td><code>/modal/sos</code></td>
+        <td>Emergency SOS Modal</td>
+        <td><span class="badge badge-auth">Protected</span></td>
+        <td><span class="badge badge-shared">Any Role</span></td>
+        <td>One-tap GPS broadcast, emergency contact alert, police speed dial</td>
+      </tr>
+      <tr>
+        <td><code>/modal/chat/[rideId]</code></td>
+        <td>In-App Ride Chat</td>
+        <td><span class="badge badge-auth">Protected</span></td>
+        <td><span class="badge badge-shared">Ride Participants</span></td>
+        <td>Real-time WebSocket chat between passenger and assigned driver</td>
+      </tr>
+      <tr>
+        <td><code>/modal/cancel-ride/[rideId]</code></td>
+        <td>Cancellation Dialog</td>
+        <td><span class="badge badge-auth">Protected</span></td>
+        <td><span class="badge badge-shared">Ride Participants</span></td>
+        <td>Standardized cancellation reasons & cancellation fee notice</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>3. Expo Router Directory Blueprint (<code>app/src/app</code>)</h2>
+  <div class="code-tree">app/src/app/
+├── _layout.tsx                     # Global Root Provider (AuthContext, Theme, QueryClient)
+├── index.tsx                       # Initial Route Gatekeeper
+│
+├── (auth)/                         # Public Flow
+│   ├── welcome.tsx
+│   ├── login.tsx
+│   ├── otp-verify.tsx
+│   └── register-profile.tsx
+│
+├── (customer)/                     # Customer Flow (Role: USER)
+│   ├── (tabs)/
+│   │   ├── home.tsx                # Map & Booking
+│   │   ├── activity.tsx            # Trip History
+│   │   └── profile.tsx             # Profile & Settings
+│   ├── select-vehicle.tsx
+│   ├── active-ride.tsx
+│   ├── ride-completed.tsx
+│   └── emergency-contacts.tsx
+│
+├── (driver)/                       # Driver Flow (Role: DRIVER)
+│   ├── onboarding/
+│   │   ├── license.tsx
+│   │   └── status.tsx
+│   ├── (tabs)/
+│   │   ├── dashboard.tsx           # Duty Console (Online/Offline)
+│   │   └── earnings.tsx            # Ledger & Payouts
+│   ├── incoming-request.tsx
+│   ├── in-trip.tsx
+│   └── trip-summary.tsx
+│
+└── (modals)/                       # Global Modal Overlays
+    ├── sos.tsx
+    ├── chat/[rideId].tsx
+    └── cancel-ride/[rideId].tsx</div>
+
+  <h2>4. Production Frontend Implementation Checklist</h2>
+  <ul class="checklist">
+    <li><strong>Secure Token Storage:</strong> Store JWT Access & Refresh tokens in <code>expo-secure-store</code>.</li>
+    <li><strong>WebSocket Stream:</strong> Single persistent connection handling live location pings and ride offer broadcasts.</li>
+    <li><strong>Background Geolocation:</strong> Driver app background tracking via <code>expo-location</code> + <code>expo-task-manager</code>.</li>
+    <li><strong>Push Notifications:</strong> Firebase Cloud Messaging (FCM) integration with deep link route forwarding.</li>
+    <li><strong>Offline Cache:</strong> React Query persistent storage for trip receipts, profile, and emergency contacts.</li>
+  </ul>
+
+  <div class="footer">
+    <span>KeralaGO — Taxi Booking Platform MVP</span>
+    <span>Generated: October 2026 | Technical Architecture Series</span>
+  </div>
+
+</body>
+</html>
