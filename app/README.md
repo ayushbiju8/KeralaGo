@@ -1,56 +1,118 @@
-# Welcome to your Expo app 👋
+# KeralaGo — Mobile & Web Frontend
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Welcome to the **KeralaGo** mobile and web frontend application, built with React Native and Expo Router.
 
-## Get started
+KeralaGo is a unified multi-modal transportation platform tailored for Kerala, connecting commuters (Auto-rickshaws, Taxis, Bikes) with verified drivers, backed by real-time dispatch, fair pricing, and regional administrative controls.
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## 📚 Essential Control Documents
 
-2. Start the app
+Every developer and AI agent working on this repository **MUST** consult these control documents before writing or modifying any code:
 
-   ```bash
-   npx expo start
-   ```
+1. [**`project_rules.md`**](./project_rules.md) — Non-negotiable development rules, Atomic Design standards, security constraints, performance guidelines, Git discipline, and Definition of Done.
+2. [**`work.md`**](./work.md) — Living development log and history of decisions, implementations, and pending milestones.
+3. [**`architecture.md`**](./architecture.md) — System architecture, layering, API separation, state management, and role-based access control (RBAC).
+4. [**`feature_plan.md`**](./feature_plan.md) — Detailed feature inventory across Customer, Driver, and Admin personas with screen roadmaps.
+5. [**`component_registry.md`**](./component_registry.md) — Comprehensive catalog of reusable Atoms, Molecules, Organisms, and Templates.
 
-In the output, you'll find options to open the app in a
+---
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## 🏗️ Architecture & Folder Structure
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+We follow a hybrid **Atomic Design + Feature-Based Encapsulation** pattern:
 
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+app/
+├── project_rules.md          # Engineering rules & Definition of Done
+├── work.md                   # Living development log
+├── architecture.md          # Architecture guide & system layers
+├── feature_plan.md           # Roadmap and screen inventory
+├── component_registry.md     # Catalog of Atoms, Molecules, Organisms
+├── README.md                 # Project orientation & running guide
+│
+├── assets/                   # App icons, splash screens, vector assets
+└── src/
+    ├── app/                  # Expo Router pages and route definitions
+    │   ├── routes/           # Typed route constants
+    │   ├── providers/        # Global context providers (Auth, Theme)
+    │   └── config/           # App configuration and environment variables
+    │
+    ├── components/           # Atomic Design UI library
+    │   ├── atoms/            # Smallest building blocks (Button, Input, Typography)
+    │   ├── molecules/        # Compositions of atoms (LocationInput, FormField)
+    │   ├── organisms/        # Domain UI sections (RideCard, DriverCard, MapPanel)
+    │   └── templates/        # Structural layout frames (ScreenTemplate)
+    │
+    ├── features/             # Domain feature logic
+    │   ├── auth/             # OTP login & session management
+    │   ├── booking/          # Pickup/drop selection, fare estimation
+    │   ├── rides/            # Active trip tracking, driver ETA, OTP
+    │   ├── drivers/          # Driver onboarding & availability
+    │   ├── payments/         # UPI, cash, and digital receipts
+    │   ├── profile/          # User preferences & emergency contacts
+    │   └── admin/            # Fleet management & driver verification
+    │
+    ├── pages/                # Screen views assembled for each persona
+    │   ├── customer/         # Rider screens
+    │   ├── driver/           # Driver partner screens
+    │   └── admin/            # Administrative screens
+    │
+    ├── hooks/                # Cross-cutting custom hooks
+    ├── services/             # API client, HTTP services & WebSockets
+    ├── store/                # Shared application & authentication state
+    ├── utils/                # Pure formatting, validation, math utilities
+    ├── constants/            # Design tokens (colors, spacing, typography)
+    ├── types/                # Domain TypeScript interfaces
+    ├── assets/               # Bundled SVG and image assets
+    └── styles/               # Shared styling utilities
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+---
 
-### Other setup steps
+## 🚀 Getting Started
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+### Prerequisites
+- Node.js (v20+ recommended)
+- npm or bun
 
-## Learn more
+### 1. Install Dependencies
+```bash
+npm install
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+### 2. Start Development Server
+```bash
+npx expo start
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+From the interactive CLI, you can launch:
+- Press `a` for Android emulator
+- Press `i` for iOS simulator
+- Press `w` for Web preview
+- Scan the QR code using Expo Go on a physical device
 
-## Join the community
+---
 
-Join our community of developers creating universal apps.
+## 🧪 Code Quality & Verification
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Before committing any changes or marking tasks as complete, run:
+
+```bash
+# 1. Typecheck (zero errors permitted)
+npx tsc --noEmit
+
+# 2. Lint check
+npx expo lint
+
+# 3. Diagnose dependency and configuration health
+npx expo-doctor
+```
+
+---
+
+## 🔒 Security Principles
+
+- **Zero Secrets in Frontend**: Never commit API secret keys, database credentials, or private tokens to this repository.
+- **Client Security**: Frontend authorization is purely cosmetic; all business logic and permissions are strictly enforced on the backend.
+- **Tokens**: Auth tokens are stored exclusively in native secure storage (`expo-secure-store`).
