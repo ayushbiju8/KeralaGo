@@ -264,3 +264,58 @@ A feature or task is NOT complete merely because it renders. It is complete only
 - [ ] `component_registry.md` updated if new components were created.
 - [ ] `work.md` updated with chronological log.
 - [ ] `architecture.md` updated if architectural decisions were made.
+
+---
+
+## 15. Component Reuse Protocol (MANDATORY)
+
+This rule is **non-negotiable** and applies to every screen in every app (Customer, Driver, Admin).
+
+### The Golden Rule
+
+> **Before writing a single line of UI code, check `component_registry.md` first.**
+
+### Strict Priority Order
+
+1. **Use an existing registered component** — check `component_registry.md` and pick the closest match.
+2. **Extend via props/variants** — if the existing component almost fits, add a new `variant`, prop, or slot to it. Do NOT duplicate.
+3. **Ask the user** — if neither approach works, explicitly ask: *"Should I create a new component `XYZ` for this, or extend an existing one?"*
+4. **Only then create a new component** — only after explicit user approval.
+
+### Forbidden Patterns
+
+- ❌ Hardcoded hex color values — always use `Colors.*` from `src/constants/theme.ts`.
+- ❌ Inline `fontSize`, `padding`, `borderRadius` magic numbers — always use `Spacing.*`, `FontSize.*`, `Radii.*`.
+- ❌ Custom one-off buttons, text labels, badges, or cards inside screen files.
+- ❌ Duplicate components that are 80%+ identical to an existing registered component.
+- ❌ Importing from individual component files — always import from barrel `index.ts`.
+
+### Import Convention
+
+```ts
+// ✅ Correct
+import { Button, Typography, Badge } from '@/components/atoms';
+import { FloatingSearchBar, LocationListItem } from '@/components/molecules';
+import { BottomTabBar, NavigationHeader } from '@/components/organisms';
+import { MapScreenTemplate } from '@/components/templates';
+
+// ❌ Wrong
+import Button from '@/components/atoms/Button';
+```
+
+### Token Import Convention
+
+```ts
+// ✅ Correct
+import { Colors, Spacing, Radii, Shadows } from '@/constants/theme';
+
+// ❌ Wrong — never hardcode
+const styles = StyleSheet.create({ btn: { backgroundColor: '#0F4A2B', padding: 16 } });
+```
+
+### Component Update Obligation
+
+If you do create or modify a component:
+1. Update `component_registry.md` immediately with status → `Implemented`.
+2. Update `work.md` with a timestamped log entry.
+3. Check that no existing consumer of the component is broken.
