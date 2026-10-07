@@ -82,6 +82,7 @@ Combinations of two or more atoms performing a focused UI function.
 | `UserListItem` | `molecules/UserListItem.tsx` | `Avatar` + `Typography` + `RatingStar` + `Badge` + chevron | Admin Drivers/Customers lists | ✅ Implemented |
 | `PaymentOptionItem` | `molecules/PaymentOptionItem.tsx` | `Icon` + `Typography` + `Radio` | Customer Payment Methods | ✅ Implemented |
 | `ProgressBar` | `molecules/ProgressBar.tsx` | Animated fill bar + `Typography` label | Driver Home progress, Customer trip tracker | ✅ Implemented |
+| `KeralaMapBackground` | `molecules/KeralaMapBackground.tsx` | Backwaters + Kochi road grid + landmark markers + vehicle markers + user radar pulse | Customer Home, Driver Home | ✅ Implemented |
 
 ---
 

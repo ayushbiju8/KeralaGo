@@ -88,3 +88,70 @@ This file is the living development history of the KeralaGo frontend. Every mean
 - Driver document verification & onboarding approvals.
 - Live fleet monitoring.
 - Transaction history & disputes.
+
+---
+
+## 2026-10-08
+
+### Role-Based Navigation & Customer Homepage Implementation
+
+#### Actions Performed
+- Installed `@expo/vector-icons` dependency.
+- Fixed `Icon` atom typing for React Native / Expo Vector Icons typography styles.
+- Created User domain interfaces in `src/types/user.ts` and barrel export `src/types/index.ts`.
+- Created authentication system & provider `src/features/auth/AuthContext.tsx` supporting:
+  - User and Driver profiles.
+  - Active session state (`user`, `isLoading`).
+  - Seamless role switching via `toggleRole()` and `setRole()`.
+  - Driver online/offline duty toggle via `toggleDriverDuty()`.
+- Created custom hook `useAuth` in `src/hooks/useAuth.ts`.
+- Implemented `KeralaMapBackground` molecule representing Kochi backwaters, NH-66 highway, Seaport-Airport Road, Kochi Metro line, live animated vehicle markers, and user location pulse aura.
+- Created `CustomerHomePage` in `src/pages/customer/CustomerHomePage.tsx`:
+  - Greeting header: "Namaskaram, Arun! 👋" with customer avatar and status badge.
+  - Dedicated role switch banner with `Switch` atom allowing direct toggle between `USER` and `DRIVER` modes.
+  - Floating action buttons: SOS Emergency and Notifications bell.
+  - `FloatingSearchBar` ("Where do you want to go?", "Now ▼").
+  - Suggestions & ride modes grid (`ServiceCategoryCard` for Auto, Comfort Sedan, Pink Ride, Moto Bike).
+  - Recent destinations list with `LocationListItem` (Lulu Mall, Ernakulam South Station, Cochin International Airport, Marine Drive).
+  - Bottom booking drawer with `RideSelectionList`, fare estimates, and ride request action.
+  - App navigation via `BottomTabBar`.
+- Created `DriverHomePage` in `src/pages/driver/DriverHomePage.tsx`:
+  - Driver status and ratings (4.94 ★).
+  - Online/Offline duty toggle switch.
+  - Dedicated role toggle switch to toggle back to `USER` mode at any time.
+  - Today's earnings and completed trips `StatCard`s.
+  - Dispatch radar / active trip drawer.
+  - Simulated incoming ride request modal (`RideRequestModal`).
+  - Driver bottom tab navigation.
+- Created `AuthScreen` in `src/pages/auth/AuthScreen.tsx` for unauthenticated states.
+- Implemented role-based navigators:
+  - `src/navigation/UserNavigator.tsx`
+  - `src/navigation/DriverNavigator.tsx`
+  - `src/navigation/AuthNavigator.tsx`
+  - `src/navigation/AppNavigator.tsx`:
+    ```tsx
+    function AppNavigator() {
+      const { user } = useAuth();
+
+      if (!user) {
+        return <AuthNavigator />;
+      }
+
+      switch (user.role) {
+        case "USER":
+          return <UserNavigator />;
+
+        case "DRIVER":
+          return <DriverNavigator />;
+
+        default:
+          return <AuthNavigator />;
+      }
+    }
+    ```
+- Integrated root provider in `src/app/_layout.tsx` (`AuthProvider` and `SafeAreaProvider`).
+- Integrated `AppNavigator` as the root entry in `src/app/index.tsx`.
+- Successfully validated TypeScript types with `npx tsc --noEmit`.
+- Resolved `@expo/vector-icons` Metro bundling resolution issue: updated `Icon.tsx` to use named imports from `@expo/vector-icons` and added standard `metro.config.js`.
+
+

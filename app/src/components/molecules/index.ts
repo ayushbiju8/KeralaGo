@@ -36,3 +36,6 @@ export type { PaymentOptionItemProps } from './PaymentOptionItem';
 
 export { default as ProgressBar } from './ProgressBar';
 export type { ProgressBarProps } from './ProgressBar';
+
+export { default as KeralaMapBackground } from './KeralaMapBackground';
+
