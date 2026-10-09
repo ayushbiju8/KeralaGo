@@ -56,7 +56,7 @@ Smallest foundational building blocks. Must never depend on domain models, featu
 | `Badge` | `atoms/Badge.tsx` | `variant`: success, warning, danger, info, neutral, pink, primary; `size`: sm, md; `dot` | ✅ Implemented |
 | `Avatar` | `atoms/Avatar.tsx` | `src`, `name` (initials fallback), `size`: xs, sm, md, lg, xl; `online`, `verified` | ✅ Implemented |
 | `Divider` | `atoms/Divider.tsx` | `orientation`: horizontal, vertical; `color`, `spacing` | ✅ Implemented |
-| `Switch` | `atoms/Switch.tsx` | `value`, `onValueChange`, `disabled` | ✅ Implemented |
+| `Switch` | `atoms/Switch.tsx` | `value`, `onValueChange`, `disabled`, `variant`: `default`, `glass` (liquid glass glassmorphism with 3D specular bead & animated spring) | ✅ Implemented |
 | `RatingStar` | `atoms/RatingStar.tsx` | `value`, `max`, `size`, `showScore`, `tripCount`, `interactive`, `onRate` | ✅ Implemented |
 | `Radio` | `atoms/Radio.tsx` | `selected`, `label`, `onSelect`, `disabled` | ✅ Implemented |
 | `Card` | `atoms/Card.tsx` | `shadow`: ShadowKey; `radius`: RadiusKey; `backgroundColor`, `onPress`, `bordered`, `borderColor` | ✅ Implemented |
@@ -77,12 +77,15 @@ Combinations of two or more atoms performing a focused UI function.
 | `RoutePointRow` | `molecules/RoutePointRow.tsx` | pickup dot + connector line + dropoff pin + `Typography` | Booking, Driver request, Active ride | ✅ Implemented |
 | `StatCard` | `molecules/StatCard.tsx` | `Icon` + `Typography` + `Badge` (trend) + `Card` | Admin Dashboard, Driver Home | ✅ Implemented |
 | `FilterPillBar` | `molecules/FilterPillBar.tsx` | scrollable `Badge`-style pills | Admin list screens, Driver Bookings | ✅ Implemented |
-| `SegmentTabs` | `molecules/SegmentTabs.tsx` | pill tab switcher | Driver Earnings/Trips, Customer Bookings, Admin Analytics | ✅ Implemented |
+| `SegmentTabs` | `molecules/SegmentTabs.tsx` | pill tab switcher with `default`, `green`, and `mint` visual variants | Driver Earnings/Trips, Customer Bookings, Admin Analytics | ✅ Implemented |
 | `InfoRow` | `molecules/InfoRow.tsx` | `Icon` + `Typography` + `Switch`/chevron/text right content | Profile, Settings, Vehicle Details | ✅ Implemented |
 | `UserListItem` | `molecules/UserListItem.tsx` | `Avatar` + `Typography` + `RatingStar` + `Badge` + chevron | Admin Drivers/Customers lists | ✅ Implemented |
 | `PaymentOptionItem` | `molecules/PaymentOptionItem.tsx` | `Icon` + `Typography` + `Radio` | Customer Payment Methods | ✅ Implemented |
 | `ProgressBar` | `molecules/ProgressBar.tsx` | Animated fill bar + `Typography` label | Driver Home progress, Customer trip tracker | ✅ Implemented |
-| `KeralaMapBackground` | `molecules/KeralaMapBackground.tsx` | Backwaters + Kochi road grid + landmark markers + vehicle markers + user radar pulse | Customer Home, Driver Home | ✅ Implemented |
+| `KeralaMapBackground` | `molecules/KeralaMapBackground.tsx` | Customer Kochi map & Driver NH-85 Kothamangalam Near MACE map with live car marker, floating controls, dynamic `offsetY` positioning, and extended lower landmarks for full-map view | Customer Home, Driver Home | ✅ Implemented |
+| `DriverHeroCarBanner` | `molecules/DriverHeroCarBanner.tsx` | Kerala landscape hills, palm silhouettes, floating white duty capsule (`landscape`), and dark green floating pill (`floating-dark`) | Driver Home | ✅ Implemented |
+| `SwipeButton` | `molecules/SwipeButton.tsx` | Gesture-driven horizontal slider with PanResponder, spring snap physics, animated fill trail, customizable height & knob icon, and completion threshold | Driver active ride simulation stages (Arrived at Pickup, Start Trip, End Trip) | ✅ Implemented |
+
 
 ---
 
@@ -94,14 +97,14 @@ Complex UI modules composed of atoms and molecules. Can bind to typed domain dat
 | Component | File | Key Composition | Used In | Status |
 | :--- | :--- | :--- | :--- | :--- |
 | `NavigationHeader` | `organisms/NavigationHeader.tsx` | Back `Button` + `Typography` title + right actions slot | All detail & list screens | ✅ Implemented |
-| `BottomSheet` | `organisms/BottomSheet.tsx` | Modal/inline slide-up panel with drag handle & backdrop | All booking flow steps, Driver active ride | ✅ Implemented |
+| `BottomSheet` | `organisms/BottomSheet.tsx` | Modal/inline slide-up panel & interactive gesture-driven collapsible bottom drawer (`variant="drawer"` with pull-down/pull-up pan physics) | All booking flow steps, Driver active ride, Driver Home collapsible drawer | ✅ Implemented |
 | `RideSelectionList` | `organisms/RideSelectionList.tsx` | Vehicle option rows (Car, Bike, Auto, Share Taxi, Pink Ride) with ETA/price | Customer Choose a Ride | ✅ Implemented |
-| `RideRequestModal` | `organisms/RideRequestModal.tsx` | Countdown ring + `RoutePointRow` + metrics + Accept/Decline `Button`s | Driver incoming request | ✅ Implemented |
+| `RideRequestModal` | `organisms/RideRequestModal.tsx` | 5-stage interactive driver ride simulator: 'request' (countdown ring & metrics), 'arriving' (navigation banner, route polyline, 'Arrived at Pickup'), 'arrived' (radar aura, 'Start Trip'), 'on_trip' (destination route, 'End Trip'), and 'completed' (confetti, breakdown, rating, 'Done') | Driver incoming request & full ride lifecycle | ✅ Implemented |
 | `DriverActiveRideCard` | `organisms/DriverActiveRideCard.tsx` | `Avatar` + `RatingStar` + call/message buttons + stage-aware CTA | Driver Arriving/OnTrip screens | ✅ Implemented |
 | `TripCompletedCard` | `organisms/TripCompletedCard.tsx` | Checkmark + fare + breakdown + `RatingStar` interactive | Customer & Driver post-trip | ✅ Implemented |
-| `TripHistoryItem` | `organisms/TripHistoryItem.tsx` | Trip ID + route + fare + `Badge` status | Customer Bookings, Driver Trips, Admin Dashboard | ✅ Implemented |
+| `TripHistoryItem` | `organisms/TripHistoryItem.tsx` | Route + fare + status badge row with `default` (card style) and `compact` (timeline dot format) | Customer Bookings, Driver Trips, Admin Dashboard | ✅ Implemented |
 | `DocumentVerificationRow` | `organisms/DocumentVerificationRow.tsx` | `Icon` + doc name + `Badge` (Verified/Pending/Rejected) | Driver Profile, Admin Driver Profile | ✅ Implemented |
-| `BottomTabBar` | `organisms/BottomTabBar.tsx` | Pill active tab, icon + label + underline indicator | All apps (Customer, Driver, Admin) | ✅ Implemented |
+| `BottomTabBar` | `organisms/BottomTabBar.tsx` | Tab items with active underline indicator, clean/pill icon highlight, supports Home, Earnings, Rides, Profile | All apps (Customer, Driver, Admin) | ✅ Implemented |
 
 ---
 

@@ -22,21 +22,25 @@ import { Colors, Spacing, Radii } from '../../constants/theme';
 
 export interface TripHistoryItemProps {
   /** Trip ID e.g. "#KG4582" */
-  tripId: string;
-  /** Time text e.g. "Today, 10:15 AM" or "2 min ago" */
+  tripId?: string;
+  /** Time text e.g. "Today, 10:15 AM" or "10:15 AM" */
   timeText: string;
   /** Pickup name */
   pickup: string;
   /** Dropoff name */
   dropoff: string;
   /** Fare amount */
-  fare: number;
+  fare: number | string;
+  /** Dot indicator color (compact variant) */
+  dotColor?: string;
   /** Status variant */
   statusVariant?: BadgeVariant;
   /** Status label */
   statusLabel?: string;
   /** Show bottom divider */
   showDivider?: boolean;
+  /** Visual variant: default (card style) or compact (Driver trips row style) */
+  variant?: 'default' | 'compact';
   /** Press handler */
   onPress?: () => void;
   /** Override style */
@@ -49,12 +53,45 @@ const TripHistoryItem: React.FC<TripHistoryItemProps> = ({
   pickup,
   dropoff,
   fare,
+  dotColor,
   statusVariant = 'success',
   statusLabel = 'Completed',
   showDivider = true,
+  variant = 'default',
   onPress,
   style,
 }) => {
+  if (variant === 'compact') {
+    return (
+      <>
+        <TouchableOpacity style={[styles.compactRow, style]} onPress={onPress} activeOpacity={0.75}>
+          <Typography variant="caption" color={Colors.textSecondary} style={styles.compactTime}>
+            {timeText}
+          </Typography>
+
+          <View style={styles.compactDotCol}>
+            <View style={[styles.compactDot, { backgroundColor: dotColor ?? Colors.primary }]} />
+          </View>
+
+          <View style={styles.compactRouteCol}>
+            <Typography variant="body2" weight="semiBold" color={Colors.textPrimary} numberOfLines={1}>
+              {pickup}
+            </Typography>
+            <Typography variant="caption" color={Colors.textSecondary} numberOfLines={1} style={{ marginTop: 2 }}>
+              → {dropoff}
+            </Typography>
+          </View>
+
+          <Typography variant="body1" weight="bold" color={Colors.textPrimary}>
+            {typeof fare === 'number' ? `₹${fare}` : fare}
+          </Typography>
+        </TouchableOpacity>
+
+        {showDivider && <Divider style={styles.compactDivider} />}
+      </>
+    );
+  }
+
   return (
     <>
       <TouchableOpacity style={[styles.row, style]} onPress={onPress} activeOpacity={0.75}>
@@ -65,12 +102,14 @@ const TripHistoryItem: React.FC<TripHistoryItemProps> = ({
         <View style={styles.info}>
           {/* Top row: ID + fare */}
           <View style={styles.topRow}>
-            <Typography variant="label" weight="semiBold" color={Colors.primary}>
-              {tripId}
-            </Typography>
+            {tripId && (
+              <Typography variant="label" weight="semiBold" color={Colors.primary}>
+                {tripId}
+              </Typography>
+            )}
             <View style={styles.fareRow}>
               <Typography variant="body2" weight="bold" color={Colors.textPrimary}>
-                ₹{fare}
+                {typeof fare === 'number' ? `₹${fare}` : fare}
               </Typography>
               {statusLabel && (
                 <Badge variant={statusVariant} label={statusLabel} size="sm" style={{ marginLeft: Spacing.sm }} />
@@ -142,6 +181,32 @@ const styles = StyleSheet.create({
   },
   routeText: {
     flex: 1,
+  },
+  compactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+  },
+  compactTime: {
+    width: 65,
+    fontSize: 11,
+  },
+  compactDotCol: {
+    width: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compactDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  compactRouteCol: {
+    flex: 1,
+    paddingHorizontal: Spacing.xs,
+  },
+  compactDivider: {
+    backgroundColor: '#F1F5F9',
   },
 });
 

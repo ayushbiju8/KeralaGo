@@ -40,6 +40,8 @@ export interface BottomTabBarProps {
   activeTabId: string;
   /** Tab press handler */
   onTabPress: (id: string) => void;
+  /** Show pill highlight behind active icon */
+  showActivePill?: boolean;
   /** Override container style */
   style?: ViewStyle;
 }
@@ -48,6 +50,7 @@ const BottomTabBar: React.FC<BottomTabBarProps> = ({
   tabs,
   activeTabId,
   onTabPress,
+  showActivePill = false,
   style,
 }) => {
   const insets = useSafeAreaInsets();
@@ -57,7 +60,7 @@ const BottomTabBar: React.FC<BottomTabBarProps> = ({
       style={[
         styles.container,
         Shadows.md as ViewStyle,
-        { paddingBottom: Math.max(insets.bottom, Spacing.sm) },
+        { paddingBottom: Math.max(insets.bottom, Spacing.xs) },
         style,
       ]}
     >
@@ -74,7 +77,7 @@ const BottomTabBar: React.FC<BottomTabBarProps> = ({
             onPress={() => onTabPress(tab.id)}
             activeOpacity={0.7}
           >
-            <View style={[styles.iconWrap, isActive && styles.iconWrapActive]}>
+            <View style={[styles.iconWrap, isActive && showActivePill && styles.iconWrapActive]}>
               <Icon
                 library={tab.iconLibrary ?? 'Ionicons'}
                 name={iconName}
@@ -85,7 +88,7 @@ const BottomTabBar: React.FC<BottomTabBarProps> = ({
 
             <Typography
               variant="xs"
-              weight={isActive ? 'semiBold' : 'regular'}
+              weight={isActive ? 'bold' : 'regular'}
               color={isActive ? Colors.primary : Colors.textMuted}
             >
               {tab.label}
@@ -105,7 +108,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderTopWidth: 1,
     borderTopColor: Colors.borderLight,
-    paddingTop: Spacing.sm,
+    paddingTop: Spacing.xs,
   },
   tab: {
     flex: 1,
@@ -113,6 +116,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 2,
     paddingTop: Spacing.xs,
+    paddingBottom: Spacing.xs,
     position: 'relative',
   },
   iconWrap: {
@@ -124,10 +128,10 @@ const styles = StyleSheet.create({
   },
   activeIndicator: {
     position: 'absolute',
-    bottom: -Spacing.sm,
+    bottom: -2,
     left: '50%',
-    marginLeft: -12,
-    width: 24,
+    marginLeft: -16,
+    width: 32,
     height: 3,
     borderRadius: 2,
     backgroundColor: Colors.primary,

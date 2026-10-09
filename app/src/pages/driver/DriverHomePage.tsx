@@ -5,273 +5,504 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Image,
+  Dimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
 import {
   Typography,
-  Avatar,
-  Badge,
-  Switch,
-  Button,
+  Card,
+  Divider,
   Icon,
 } from '../../components/atoms';
 import {
-  StatCard,
-  RoutePointRow,
+  DriverHeroCarBanner,
+  KeralaMapBackground,
 } from '../../components/molecules';
 import {
   BottomTabBar,
+  BottomSheet,
   RideRequestModal,
   TabItem,
 } from '../../components/organisms';
-import KeralaMapBackground from '../../components/molecules/KeralaMapBackground';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 
 const DRIVER_TABS: TabItem[] = [
-  { id: 'dashboard', label: 'Duty', iconName: 'speedometer', iconNameInactive: 'speedometer-outline' },
-  { id: 'earnings', label: 'Earnings', iconName: 'cash', iconNameInactive: 'cash-outline' },
-  { id: 'trips', label: 'Trips', iconName: 'list', iconNameInactive: 'list-outline' },
+  { id: 'home', label: 'Home', iconName: 'home', iconNameInactive: 'home-outline' },
+  { id: 'earnings', label: 'Earnings', iconName: 'stats-chart', iconNameInactive: 'stats-chart-outline' },
+  { id: 'bookings', label: 'Rides', iconName: 'car-sport', iconNameInactive: 'car-sport-outline' },
   { id: 'profile', label: 'Profile', iconName: 'person', iconNameInactive: 'person-outline' },
 ];
 
-const DriverHomePage: React.FC = () => {
+export interface DriverHomePageProps {
+  onNavigateTab?: (tabId: string) => void;
+  onNavigateVehicleDetails?: () => void;
+  activeTab?: string;
+}
+
+const DriverHomePage: React.FC<DriverHomePageProps> = ({
+  onNavigateTab,
+  onNavigateVehicleDetails,
+  activeTab: controlledActiveTab,
+}) => {
   const { user, toggleRole, toggleDriverDuty } = useAuth();
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const insets = useSafeAreaInsets();
+  const { height: screenHeight } = Dimensions.get('window');
+
+  const [internalTab, setInternalTab] = useState<string>('home');
+  const activeTab = controlledActiveTab ?? internalTab;
+  const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [showIncomingModal, setShowIncomingModal] = useState<boolean>(false);
-  const [activeRideStarted, setActiveRideStarted] = useState<boolean>(false);
+
+  const handleTabSelect = (tabId: string) => {
+    setInternalTab(tabId);
+    if (onNavigateTab) {
+      onNavigateTab(tabId);
+    }
+  };
 
   const isOnline = user?.isOnline ?? true;
 
   const handleAcceptRide = () => {
-    setShowIncomingModal(false);
-    setActiveRideStarted(true);
-    Alert.alert('Ride Accepted! 🚖', 'Navigate to pickup: Lulu Mall Gate 2, Edappally');
+    // Proceed into navigation simulation stages ('arriving' -> 'arrived' -> 'on_trip' -> 'completed')
   };
 
   const handleDeclineRide = () => {
     setShowIncomingModal(false);
   };
 
+  const handleCompleteRide = () => {
+    setShowIncomingModal(false);
+    Alert.alert('Trip Completed! 🎉', '₹120 has been credited to your daily earnings.');
+  };
+
+  const handleFuelPress = () => {
+    Alert.alert('Fuel / CNG Stations', 'Finding nearest HP / IndianOil CNG station near Kothamangalam bypass.');
+  };
+
+  const handleVehicleCarePress = () => {
+    Alert.alert('Vehicle Care', 'Certified workshops & car wash centers near MACE Junction.');
+  };
+
+  const handleSupportPress = () => {
+    Alert.alert('KeralaGo 24/7 Driver Support', 'Connecting to Driver Helpline: 1800-425-GO-KL');
+  };
+
+  const handleSosPress = () => {
+    Alert.alert(
+      '🚨 SOS Emergency Alert',
+      'This will instantly notify Kerala Police (112) & the KeralaGo 24/7 Emergency Response Team with your live coordinates Near MACE.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Trigger Emergency SOS',
+          style: 'destructive',
+          onPress: () => Alert.alert('Emergency Broadcast Sent', 'Live location broadcasted to authorities.'),
+        },
+      ]
+    );
+  };
+
+  // Dimensions for collapsible bottom drawer
+  const bottomBarHeight = 60 + insets.bottom;
+  const mapOffsetY = insets.top + 105;
+  const drawerExpandedTop = insets.top + 280;
+
   return (
     <View style={styles.root}>
-      {/* ── Background Map / Heatmap ── */}
-      <KeralaMapBackground showVehicles={isOnline} />
+      {/* ── 1. Full Screen Kerala Map Background (Highway 85, River, MACE Pin) ── */}
+      <View style={StyleSheet.absoluteFill}>
+        <KeralaMapBackground
+          variant="driver"
+          height={screenHeight}
+          offsetY={mapOffsetY}
+          onLocatePress={() => Alert.alert('GPS Location', 'Centered on current location: Near MACE, Kothamangalam.')}
+          onLayersPress={() => Alert.alert('Map Layers', 'Switched to Traffic & Demand heatmap.')}
+          onNavigatePress={() => Alert.alert('Navigation', 'Turn-by-turn navigation started towards high demand sector.')}
+        />
+      </View>
 
-      {/* ── Top Header & Controls ── */}
-      <SafeAreaView edges={['top']} style={styles.topContainer}>
-        {/* Header Bar */}
+      {/* ── 2. Top Header Bar & Floating Dark Duty Capsule Pill ── */}
+      <SafeAreaView edges={['top']} style={styles.safeHeaderArea}>
+        {/* Top Header Bar */}
         <View style={styles.headerBar}>
-          <View style={styles.driverProfileBlock}>
-            <Avatar
-              name={user?.name || 'Driver Suresh'}
-              size="md"
-              online={isOnline}
-              verified={true}
-            />
-            <View>
-              <View style={styles.nameRow}>
-                <Typography variant="body1" weight="bold" color={Colors.textPrimary}>
-                  {user?.name || 'Suresh Pillai'}
-                </Typography>
-                <Badge variant="warning" label="4.94 ★" size="sm" />
-              </View>
-              <Typography variant="xs" color={Colors.textMuted}>
-                KL-07-CC-8291 • KeralaGO Auto Partner
+          {/* Left Menu Button */}
+          <TouchableOpacity
+            style={styles.headerIconButton}
+            onPress={() => setIsMenuOpen(true)}
+            activeOpacity={0.7}
+          >
+            <Icon library="Ionicons" name="menu-outline" size={26} color={Colors.textPrimary} />
+          </TouchableOpacity>
+
+          {/* Center Logo & Subtitle */}
+          <View style={styles.brandTitleCenter}>
+            <View style={styles.logoRow}>
+              <Icon
+                library="MaterialCommunityIcons"
+                name="palm-tree"
+                size={22}
+                color={Colors.primary}
+                style={{ marginRight: 4 }}
+              />
+              <Typography variant="h3" weight="bold" color={Colors.primary}>
+                KeralaGo
               </Typography>
             </View>
+            <Typography variant="xs" weight="medium" color={Colors.textSecondary}>
+              Driver
+            </Typography>
           </View>
 
-          {/* Duty Switch (Online / Offline) */}
-          <View style={styles.dutyPill}>
-            <View
-              style={[
-                styles.dutyDot,
-                { backgroundColor: isOnline ? Colors.success : Colors.textMuted },
-              ]}
-            />
-            <Typography
-              variant="label"
-              weight="bold"
-              color={isOnline ? Colors.primaryDark : Colors.textMuted}
-            >
-              {isOnline ? 'ONLINE' : 'OFFLINE'}
-            </Typography>
-            <Switch
-              value={isOnline}
-              onValueChange={toggleDriverDuty}
-            />
-          </View>
+          {/* Right Notification Bell */}
+          <TouchableOpacity
+            style={styles.headerIconButton}
+            onPress={() => Alert.alert('KeralaGO Notifications', 'No pending alerts.')}
+            activeOpacity={0.7}
+          >
+            <Icon library="Ionicons" name="notifications-outline" size={24} color={Colors.textPrimary} />
+            <View style={styles.bellDot} />
+          </TouchableOpacity>
         </View>
 
-        {/* ── Prominent Role Switcher Banner ── */}
-        <View style={styles.roleToggleBanner}>
-          <View style={styles.roleToggleInfo}>
-            <View style={[styles.roleIconCircle, { backgroundColor: Colors.mintLight }]}>
-              <Icon
-                library="Ionicons"
-                name="person"
-                size={18}
-                color={Colors.primary}
-              />
-            </View>
-            <View>
-              <Typography variant="label" weight="bold" color={Colors.primaryDark}>
-                Customer Mode Switch
-              </Typography>
-              <Typography variant="xs" color={Colors.textSecondary}>
-                Switch between Customer & Driver apps
-              </Typography>
-            </View>
-          </View>
-
-          <View style={styles.switchWrapper}>
-            <Typography
-              variant="xs"
-              weight="semiBold"
-              color={user?.role === 'DRIVER' ? Colors.primary : Colors.textMuted}
-            >
-              {user?.role === 'DRIVER' ? 'DRIVER' : 'USER'}
-            </Typography>
-            <Switch
-              value={user?.role === 'DRIVER'}
-              onValueChange={toggleRole}
-            />
-          </View>
+        {/* Floating Dark Green Duty Capsule Pill */}
+        <View style={styles.floatingBannerWrapper}>
+          <DriverHeroCarBanner
+            isOnline={isOnline}
+            onToggleDuty={toggleDriverDuty}
+            variant="floating-dark"
+          />
         </View>
       </SafeAreaView>
 
-      {/* ── Bottom Drawer / Driver Stats Sheet ── */}
-      <View style={styles.drawerCard}>
-        <View style={styles.drawerHandle} />
-
+      {/* ── 3. Collapsible Bottom Drawer (Pull down to view full map) ── */}
+      <BottomSheet
+        variant="drawer"
+        expandedTop={drawerExpandedTop}
+        bottomOffset={bottomBarHeight}
+        collapsedPeekHeight={48}
+        showHandle={true}
+        style={styles.drawerCard}
+      >
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.drawerScrollContent}
+          bounces={false}
         >
-          {/* Quick Metrics */}
-          <View style={styles.statsRow}>
-            <StatCard
-              title="Today's Earnings"
-              value="₹1,840"
-              iconName="cash-outline"
-              trend="+14% today"
-              trendPositive={true}
-              style={{ flex: 1 }}
-            />
-            <StatCard
-              title="Completed Trips"
-              value="8"
-              iconName="checkmark-circle-outline"
-              trend="96% Accept"
-              trendPositive={true}
-              style={{ flex: 1 }}
-            />
+          {/* ── Vehicle Card (Maruti Swift Dzire / KL 07 AB 1234 / Sedan) ── */}
+          <TouchableOpacity
+            style={styles.vehicleCard}
+            activeOpacity={0.85}
+            onPress={onNavigateVehicleDetails ?? (() => Alert.alert('Vehicle Details', 'Maruti Swift Dzire\nRegistration: KL 07 AB 1234\nCategory: Sedan\nFitness & Insurance: Valid'))}
+          >
+            <View style={styles.carImageContainer}>
+              <Image
+                source={require('../../../assets/images/white_sedan.jpg')}
+                style={styles.vehicleThumb}
+                resizeMode="contain"
+              />
+            </View>
+
+            <View style={styles.vehicleInfoCol}>
+              <Typography variant="body1" weight="bold" color={Colors.textPrimary}>
+                Maruti Swift Dzire
+              </Typography>
+              <Typography variant="body2" weight="medium" color={Colors.textSecondary} style={{ marginTop: 2 }}>
+                KL 07 AB 1234
+              </Typography>
+              <View style={styles.sedanBadge}>
+                <Typography variant="xs" weight="bold" color="#166534">
+                  Sedan
+                </Typography>
+              </View>
+            </View>
+
+            <Icon library="Ionicons" name="chevron-forward" size={22} color="#16A34A" />
+          </TouchableOpacity>
+
+          {/* ── Summary 3-Column Card (12 Trips / ₹1,240 / 4.8 Rating) ── */}
+          <Card style={styles.summaryCard}>
+            {/* Column 1: Trips today */}
+            <View style={styles.summaryCol}>
+              <Icon library="Ionicons" name="car-sport" size={22} color="#10B981" />
+              <Typography variant="h2" weight="bold" color={Colors.textPrimary} style={{ marginTop: 4 }}>
+                12
+              </Typography>
+              <Typography variant="caption" color={Colors.textSecondary} style={{ marginTop: 2 }}>
+                Trips today
+              </Typography>
+              <Typography variant="caption" weight="bold" color="#10B981" style={{ marginTop: 2 }}>
+                ↑ +20%
+              </Typography>
+            </View>
+
+            <Divider orientation="vertical" style={styles.summaryDivider} />
+
+            {/* Column 2: Earnings today */}
+            <View style={styles.summaryCol}>
+              <View style={styles.rupeeCircle}>
+                <Typography variant="xs" weight="bold" color={Colors.white}>
+                  ₹
+                </Typography>
+              </View>
+              <Typography variant="h2" weight="bold" color={Colors.textPrimary} style={{ marginTop: 4 }}>
+                ₹1,240
+              </Typography>
+              <Typography variant="caption" color={Colors.textSecondary} style={{ marginTop: 2 }}>
+                Earnings today
+              </Typography>
+              <Typography variant="caption" weight="bold" color="#10B981" style={{ marginTop: 2 }}>
+                ↑ +18%
+              </Typography>
+            </View>
+
+            <Divider orientation="vertical" style={styles.summaryDivider} />
+
+            {/* Column 3: Rating */}
+            <View style={styles.summaryCol}>
+              <Icon library="Ionicons" name="star" size={22} color="#10B981" />
+              <Typography variant="h2" weight="bold" color={Colors.textPrimary} style={{ marginTop: 4 }}>
+                4.8
+              </Typography>
+              <Typography variant="caption" color={Colors.textSecondary} style={{ marginTop: 2 }}>
+                Rating
+              </Typography>
+              <Typography variant="xs" color={Colors.textMuted} style={{ marginTop: 2 }}>
+                (128 reviews)
+              </Typography>
+            </View>
+          </Card>
+
+          {/* ── High Demand Alert Banner (+30%) ── */}
+          <TouchableOpacity
+            style={styles.highDemandCard}
+            activeOpacity={0.85}
+            onPress={() => setShowIncomingModal(true)}
+          >
+            <View style={styles.chartIconContainer}>
+              <Icon library="Ionicons" name="stats-chart" size={22} color="#166534" />
+            </View>
+
+            <View style={styles.highDemandTextCol}>
+              <Typography variant="body1" weight="bold" color={Colors.textPrimary}>
+                High demand in your area
+              </Typography>
+              <Typography variant="caption" color={Colors.textSecondary} style={{ marginTop: 2 }}>
+                More ride requests right now
+              </Typography>
+            </View>
+
+            <View style={styles.demandRightGroup}>
+              <View style={styles.demandBadge}>
+                <Typography variant="caption" weight="bold" color="#166534">
+                  +30%
+                </Typography>
+              </View>
+              <Icon library="Ionicons" name="chevron-forward" size={20} color="#166534" />
+            </View>
+          </TouchableOpacity>
+
+          {/* ── Today's Progress Section ── */}
+          <View style={styles.sectionHeaderRow}>
+            <Typography variant="h4" weight="bold" color={Colors.textPrimary}>
+              Today's Progress
+            </Typography>
+            <TouchableOpacity
+              onPress={() => Alert.alert('Earnings Progress Details', 'Target: ₹2,000\nCompleted: ₹1,240 (62%)\nRemaining: ₹760 to daily bonus')}
+              style={styles.viewDetailsRow}
+            >
+              <Typography variant="body2" weight="bold" color={Colors.primary}>
+                View details
+              </Typography>
+              <Icon library="Ionicons" name="chevron-forward" size={16} color={Colors.primary} style={{ marginLeft: 2 }} />
+            </TouchableOpacity>
           </View>
 
-          {/* Active Trip Status or Ready for Dispatch */}
-          {activeRideStarted ? (
-            <View style={styles.activeRideBox}>
-              <View style={styles.activeRideHeader}>
-                <Badge variant="info" label="In Progress" size="sm" />
-                <Typography variant="xs" weight="bold" color={Colors.textMuted}>
-                  PIN: 4821
+          <Card style={styles.progressCard}>
+            <View style={styles.progressTopRow}>
+              <View style={styles.targetIconCircle}>
+                <Icon library="Ionicons" name="checkmark-circle-outline" size={24} color="#0F4A2B" />
+              </View>
+              <View style={{ marginLeft: Spacing.md, flex: 1 }}>
+                <Typography variant="h3" weight="bold" color={Colors.textPrimary}>
+                  ₹1,240 <Typography variant="h3" weight="regular" color={Colors.textSecondary}>/ ₹2,000</Typography>
+                </Typography>
+                <Typography variant="caption" color={Colors.textSecondary} style={{ marginTop: 2 }}>
+                  Earnings goal
                 </Typography>
               </View>
-              <RoutePointRow
-                pickup="Lulu Mall Gate 2, Edappally"
-                dropoff="Infopark Phase 1, Kakkanad"
-              />
-              <View style={styles.activeRideActions}>
-                <Button
-                  label="Call Passenger"
-                  variant="outline"
-                  size="sm"
-                  onPress={() => Alert.alert('Call', 'Connecting to passenger...')}
-                  style={{ flex: 1 }}
-                />
-                <Button
-                  label="Complete Trip"
-                  variant="primary"
-                  size="sm"
-                  onPress={() => {
-                    setActiveRideStarted(false);
-                    Alert.alert('Trip Completed! 🎉', '₹185 collected via UPI.');
-                  }}
-                  style={{ flex: 1 }}
-                />
-              </View>
             </View>
-          ) : (
-            <View style={styles.dispatchBox}>
-              <View style={styles.dispatchHeader}>
-                <View style={styles.pulseDot} />
-                <Typography variant="body2" weight="semiBold" color={Colors.textPrimary}>
-                  {isOnline ? 'Searching for nearby bookings in Kochi...' : 'You are currently offline'}
-                </Typography>
-              </View>
-              <Typography variant="caption" color={Colors.textSecondary} style={{ marginBottom: Spacing.sm }}>
-                {isOnline
-                  ? 'High demand area around Edappally & Kakkanad. 1.2x surge active.'
-                  : 'Go online to start receiving ride requests.'}
-              </Typography>
 
-              {isOnline && (
-                <Button
-                  label="Simulate Incoming Ride Offer"
-                  variant="secondary"
-                  size="sm"
-                  leftIcon={<Icon library="Ionicons" name="notifications-outline" size="sm" color={Colors.textPrimary} />}
-                  onPress={() => setShowIncomingModal(true)}
-                  fullWidth
-                />
-              )}
+            <View style={styles.progressBarWrapper}>
+              <View style={styles.progressTrack}>
+                <View style={[styles.progressFill, { width: '62%' }]} />
+              </View>
+              <Typography variant="caption" weight="bold" color={Colors.textSecondary} style={styles.progressPercentText}>
+                62%
+              </Typography>
             </View>
-          )}
+          </Card>
 
-          {/* Demand Hotspots */}
-          <Typography variant="h4" weight="bold" color={Colors.textPrimary} style={{ marginTop: Spacing.md, marginBottom: Spacing.sm }}>
-            Current Surge Areas (Kochi)
-          </Typography>
-          <View style={styles.hotspotsList}>
-            <View style={styles.hotspotItem}>
-              <View style={styles.hotspotDot} />
-              <Typography variant="body2" weight="medium" color={Colors.textPrimary} style={{ flex: 1 }}>
-                Lulu Mall, Edappally
+          {/* ── Quick Actions Section ── */}
+          <View style={styles.sectionHeaderRow}>
+            <Typography variant="h4" weight="bold" color={Colors.textPrimary}>
+              Quick Actions
+            </Typography>
+          </View>
+
+          <View style={styles.quickActionsRow}>
+            {/* 1. Fuel / CNG */}
+            <TouchableOpacity
+              style={styles.actionCard}
+              activeOpacity={0.75}
+              onPress={handleFuelPress}
+            >
+              <Icon library="MaterialIcons" name="local-gas-station" size={28} color="#0F172A" />
+              <Typography variant="xs" weight="medium" color={Colors.textSecondary} align="center" style={styles.actionLabel}>
+                Fuel / {'\n'}CNG
               </Typography>
-              <Badge variant="warning" label="1.4x Surge" size="sm" />
-            </View>
-            <View style={styles.hotspotItem}>
-              <View style={styles.hotspotDot} />
-              <Typography variant="body2" weight="medium" color={Colors.textPrimary} style={{ flex: 1 }}>
-                Infopark Expressway, Kakkanad
+            </TouchableOpacity>
+
+            {/* 2. Vehicle Care */}
+            <TouchableOpacity
+              style={styles.actionCard}
+              activeOpacity={0.75}
+              onPress={handleVehicleCarePress}
+            >
+              <Icon library="Ionicons" name="car-sport" size={28} color="#0F172A" />
+              <Typography variant="xs" weight="medium" color={Colors.textSecondary} align="center" style={styles.actionLabel}>
+                Vehicle{'\n'}Care
               </Typography>
-              <Badge variant="warning" label="1.2x Surge" size="sm" />
-            </View>
+            </TouchableOpacity>
+
+            {/* 3. Support */}
+            <TouchableOpacity
+              style={styles.actionCard}
+              activeOpacity={0.75}
+              onPress={handleSupportPress}
+            >
+              <Icon library="Ionicons" name="headset" size={28} color="#0F172A" />
+              <Typography variant="xs" weight="medium" color={Colors.textSecondary} align="center" style={styles.actionLabel}>
+                Support
+              </Typography>
+            </TouchableOpacity>
+
+            {/* 4. SOS */}
+            <TouchableOpacity
+              style={styles.sosCard}
+              activeOpacity={0.75}
+              onPress={handleSosPress}
+            >
+              <View style={styles.sosIconCircle}>
+                <Icon library="Ionicons" name="alert" size={20} color={Colors.white} />
+              </View>
+              <Typography variant="caption" weight="bold" color="#EF4444" align="center" style={styles.sosLabel}>
+                SOS
+              </Typography>
+            </TouchableOpacity>
           </View>
         </ScrollView>
-      </View>
+      </BottomSheet>
 
-      {/* ── Incoming Ride Request Modal ── */}
-      {showIncomingModal && (
-        <RideRequestModal
-          pickup="Lulu Mall Gate 2, Edappally, Kochi"
-          dropoff="Infopark Phase 1, Kakkanad"
-          distanceKm={6.4}
-          estimatedFare={185}
-          etaMinutes={4}
-          pickupTimeMinutes={3}
-          onAccept={handleAcceptRide}
-          onDecline={handleDeclineRide}
-        />
-      )}
-
-      {/* ── Driver Tab Bar ── */}
+      {/* ── 4. Bottom Tab Navigation Bar (Home, Earnings, Rides, Profile) ── */}
       <BottomTabBar
         tabs={DRIVER_TABS}
         activeTabId={activeTab}
-        onTabPress={setActiveTab}
+        onTabPress={handleTabSelect}
+        style={styles.bottomTabBar}
       />
+
+      {/* ── Incoming Ride Request Simulator Modal ── */}
+      <RideRequestModal
+        visible={showIncomingModal}
+        pickup="M B Hostel"
+        pickupSub="MACE Hostels Road, Kothamangalam"
+        dropoff="Mar Athanasius College"
+        dropoffSub="College Jn, Kothamangalam"
+        distanceKm={2.8}
+        estimatedFare={120}
+        etaMinutes={5}
+        pickupTimeMinutes={5}
+        passengerName="Devarth"
+        passengerRating={4.8}
+        passengerTrips={32}
+        countdownSeconds={20}
+        onAccept={handleAcceptRide}
+        onDecline={handleDeclineRide}
+        onComplete={handleCompleteRide}
+      />
+
+      {/* ── Driver Menu & Role Switch BottomSheet ── */}
+      <BottomSheet
+        visible={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+        showBackdrop={true}
+      >
+        <View style={styles.menuSheetContent}>
+          <View style={styles.menuHeader}>
+            <View style={styles.menuAvatarCircle}>
+              <Icon library="MaterialCommunityIcons" name="steering" size={28} color={Colors.primary} />
+            </View>
+            <View>
+              <Typography variant="h3" weight="bold" color={Colors.textPrimary}>
+                {user?.name || 'Suresh Pillai'}
+              </Typography>
+              <Typography variant="caption" color={Colors.textMuted}>
+                KL-07-AB-1234 • Maruti Swift Dzire • 4.8 ★
+              </Typography>
+            </View>
+          </View>
+
+          <Divider style={{ marginVertical: Spacing.md }} />
+
+          {/* Switch to Customer App Action */}
+          <TouchableOpacity
+            style={styles.menuItemRow}
+            onPress={() => {
+              setIsMenuOpen(false);
+              toggleRole();
+            }}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.menuItemIcon, { backgroundColor: Colors.mintLight }]}>
+              <Icon library="Ionicons" name="person" size={20} color={Colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Typography variant="body1" weight="bold" color={Colors.primaryDark}>
+                Switch to Customer App
+              </Typography>
+              <Typography variant="caption" color={Colors.textSecondary}>
+                Switch persona back to passenger mode
+              </Typography>
+            </View>
+            <Icon library="Ionicons" name="swap-horizontal" size={20} color={Colors.primary} />
+          </TouchableOpacity>
+
+          {/* Test Incoming Request Action */}
+          <TouchableOpacity
+            style={styles.menuItemRow}
+            onPress={() => {
+              setIsMenuOpen(false);
+              setShowIncomingModal(true);
+            }}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.menuItemIcon, { backgroundColor: '#FEF3C7' }]}>
+              <Icon library="Ionicons" name="flash" size={20} color="#D97706" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Typography variant="body1" weight="bold" color={Colors.textPrimary}>
+                Simulate Ride Offer
+              </Typography>
+              <Typography variant="caption" color={Colors.textSecondary}>
+                Preview incoming dispatch modal
+              </Typography>
+            </View>
+            <Icon library="Ionicons" name="chevron-forward" size={18} color={Colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+      </BottomSheet>
     </View>
   );
 };
@@ -279,158 +510,306 @@ const DriverHomePage: React.FC = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: '#EDF6EF',
   },
-  topContainer: {
-    paddingHorizontal: Spacing.base,
+  safeHeaderArea: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 15,
+    backgroundColor: 'transparent',
   },
   headerBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.xs,
   },
-  driverProfileBlock: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-  },
-  dutyPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-    backgroundColor: Colors.white,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 6,
+  headerIconButton: {
+    width: 40,
+    height: 40,
     borderRadius: Radii.full,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadows.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
   },
-  dutyDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  bellDot: {
+    position: 'absolute',
+    top: 9,
+    right: 10,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: Colors.danger,
   },
-  roleToggleBanner: {
+  brandTitleCenter: {
+    alignItems: 'center',
+  },
+  logoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: Radii.lg,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+  },
+  floatingBannerWrapper: {
     marginTop: Spacing.xs,
-    borderWidth: 1,
-    borderColor: Colors.mintBorder,
-    ...Shadows.sm,
+    paddingHorizontal: Spacing.xs,
   },
-  roleToggleInfo: {
+  drawerCard: {
+    backgroundColor: Colors.white,
+    ...Shadows.xl,
+  },
+  drawerScrollContent: {
+    paddingBottom: Spacing['3xl'],
+    paddingTop: Spacing.xs,
+  },
+  bottomTabBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 25,
+  },
+
+  // ── Vehicle Details Card ──
+  vehicleCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    backgroundColor: Colors.white,
+    marginHorizontal: Spacing.base,
+    marginTop: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.base,
+    borderRadius: Radii.xl,
+    borderWidth: 1,
+    borderColor: '#EFF3F0',
+    ...Shadows.sm,
   },
-  roleIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  carImageContainer: {
+    width: 85,
+    height: 50,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  switchWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
+  vehicleThumb: {
+    width: '100%',
+    height: '100%',
   },
-  drawerCard: {
+  vehicleInfoCol: {
     flex: 1,
-    marginTop: Spacing.md,
-    backgroundColor: Colors.white,
-    borderTopLeftRadius: Radii['2xl'],
-    borderTopRightRadius: Radii['2xl'],
-    ...Shadows.lg,
+    marginLeft: Spacing.md,
   },
-  drawerHandle: {
-    width: 44,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: Colors.border,
-    alignSelf: 'center',
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.xs,
+  sedanBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: Radii.full,
+    marginTop: Spacing.xs,
   },
-  drawerScrollContent: {
-    paddingHorizontal: Spacing.base,
-    paddingBottom: Spacing['2xl'],
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-    marginTop: Spacing.sm,
-  },
-  dispatchBox: {
-    backgroundColor: Colors.surface,
-    padding: Spacing.md,
-    borderRadius: Radii.lg,
-    marginTop: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-  },
-  dispatchHeader: {
+
+  // ── Summary Card (12 Trips / ₹1,240 / 4.8 Rating) ──
+  summaryCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
-    marginBottom: 4,
-  },
-  pulseDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: Colors.primaryVibrant,
-  },
-  activeRideBox: {
-    backgroundColor: Colors.mintLight,
-    padding: Spacing.md,
-    borderRadius: Radii.lg,
-    marginTop: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.mintBorder,
-  },
-  activeRideHeader: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.sm,
+    backgroundColor: Colors.white,
+    marginHorizontal: Spacing.base,
+    marginTop: Spacing.md,
+    paddingVertical: Spacing.base,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: Radii.xl,
+    borderWidth: 1,
+    borderColor: '#EFF3F0',
+    ...Shadows.sm,
   },
-  activeRideActions: {
+  summaryCol: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rupeeCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  summaryDivider: {
+    height: 48,
+    backgroundColor: '#E2E8F0',
+  },
+
+  // ── High Demand Card ──
+  highDemandCard: {
     flexDirection: 'row',
-    gap: Spacing.md,
+    alignItems: 'center',
+    backgroundColor: '#EDF7EE',
+    marginHorizontal: Spacing.base,
+    marginTop: Spacing.md,
+    padding: Spacing.base,
+    borderRadius: Radii.xl,
+    borderWidth: 1,
+    borderColor: '#D4EAD9',
+  },
+  chartIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: Radii.lg,
+    backgroundColor: '#D9EFE0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.md,
+  },
+  highDemandTextCol: {
+    flex: 1,
+  },
+  demandRightGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  demandBadge: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: Radii.full,
+  },
+
+  // ── Section Header Row ──
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: Spacing.base,
+    marginTop: Spacing.lg,
+  },
+  viewDetailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  // ── Today's Progress Card ──
+  progressCard: {
+    backgroundColor: Colors.white,
+    marginHorizontal: Spacing.base,
+    marginTop: Spacing.sm,
+    padding: Spacing.base,
+    borderRadius: Radii.xl,
+    borderWidth: 1,
+    borderColor: '#EFF3F0',
+    ...Shadows.sm,
+  },
+  progressTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  targetIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  progressBarWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginTop: Spacing.md,
   },
-  hotspotsList: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radii.lg,
-    padding: Spacing.sm,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
+  progressTrack: {
+    flex: 1,
+    height: 8,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 4,
+    overflow: 'hidden',
   },
-  hotspotItem: {
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#0F4A2B',
+    borderRadius: 4,
+  },
+  progressPercentText: {
+    marginLeft: Spacing.md,
+  },
+
+  // ── Quick Actions ──
+  quickActionsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.xs,
+    marginHorizontal: Spacing.base,
+    marginTop: Spacing.sm,
     gap: Spacing.sm,
   },
-  hotspotDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.warning,
+  actionCard: {
+    flex: 1,
+    backgroundColor: Colors.white,
+    paddingVertical: Spacing.base,
+    paddingHorizontal: Spacing.xs,
+    borderRadius: Radii.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#EFF3F0',
+    ...Shadows.sm,
+  },
+  actionLabel: {
+    marginTop: Spacing.xs,
+    lineHeight: 14,
+  },
+  sosCard: {
+    flex: 1,
+    backgroundColor: '#FFF1F2',
+    paddingVertical: Spacing.base,
+    paddingHorizontal: Spacing.xs,
+    borderRadius: Radii.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+    ...Shadows.sm,
+  },
+  sosIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sosLabel: {
+    marginTop: Spacing.xs,
+  },
+
+  // ── Menu Sheet Content ──
+  menuSheetContent: {
+    paddingBottom: Spacing.md,
+  },
+  menuHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  menuAvatarCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: Radii.full,
+    backgroundColor: Colors.mint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+    gap: Spacing.md,
+  },
+  menuItemIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: Radii.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 
