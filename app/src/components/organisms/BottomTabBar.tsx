@@ -1,18 +1,3 @@
-/**
- * Organism: BottomTabBar
- *
- * App-wide bottom navigation bar matching all 3 KeralaGo mockups.
- *
- * Customer tabs: Home | Bookings | Profile
- * Driver tabs:   Home | Earnings | Bookings | Profile
- * Admin tabs:    Home | Analytics | Management | Profile
- *
- * Active tab: pill background + green icon + green label + green underline
- * Inactive: grey icon + grey label
- *
- * Reference: All 3 app showcases — bottom navigation
- */
-
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -57,80 +42,100 @@ const BottomTabBar: React.FC<BottomTabBarProps> = ({
       style={[
         styles.container,
         Shadows.md as ViewStyle,
-        { paddingBottom: Math.max(insets.bottom, Spacing.sm) },
+        { paddingBottom: Math.max(insets.bottom - 4, 6) },
         style,
       ]}
     >
-      {tabs.map((tab) => {
-        const isActive = tab.id === activeTabId;
-        const iconName = isActive
-          ? tab.iconName
-          : (tab.iconNameInactive ?? tab.iconName);
+      <View style={styles.tabsRow}>
+        {tabs.map((tab) => {
+          const isActive = tab.id === activeTabId;
+          const iconName = isActive
+            ? tab.iconName
+            : (tab.iconNameInactive ?? tab.iconName);
 
-        return (
-          <TouchableOpacity
-            key={tab.id}
-            style={styles.tab}
-            onPress={() => onTabPress(tab.id)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.iconWrap, isActive && styles.iconWrapActive]}>
-              <Icon
-                library={tab.iconLibrary ?? 'Ionicons'}
-                name={iconName}
-                size="md"
-                color={isActive ? Colors.primary : Colors.textMuted}
-              />
-            </View>
-
-            <Typography
-              variant="xs"
-              weight={isActive ? 'semiBold' : 'regular'}
-              color={isActive ? Colors.primary : Colors.textMuted}
+          return (
+            <TouchableOpacity
+              key={tab.id}
+              style={styles.tab}
+              onPress={() => onTabPress(tab.id)}
+              activeOpacity={0.7}
             >
-              {tab.label}
-            </Typography>
+              <View style={[styles.iconWrap, isActive && styles.iconWrapActive]}>
+                <Icon
+                  library={tab.iconLibrary ?? 'Ionicons'}
+                  name={iconName}
+                  size={22}
+                  color={isActive ? '#0F4A2B' : '#64748B'}
+                />
+              </View>
 
-            {isActive && <View style={styles.activeIndicator} />}
-          </TouchableOpacity>
-        );
-      })}
+              <Typography
+                variant="caption"
+                weight={isActive ? 'bold' : 'medium'}
+                color={isActive ? '#0F4A2B' : '#64748B'}
+                style={styles.tabLabel}
+              >
+                {tab.label}
+              </Typography>
+
+              {isActive && <View style={styles.activeIndicator} />}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* iOS Home Indicator Bar */}
+      <View style={styles.homeIndicator} />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    backgroundColor: Colors.white,
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
-    paddingTop: Spacing.sm,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 8,
+  },
+  tabsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
   },
   tab: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
-    paddingTop: Spacing.xs,
-    position: 'relative',
   },
   iconWrap: {
-    padding: Spacing.xs,
-    borderRadius: Radii.full,
+    width: 62,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   iconWrapActive: {
-    backgroundColor: Colors.mintLight,
+    backgroundColor: '#DFF2E7',
+  },
+  tabLabel: {
+    marginTop: 3,
+    fontSize: 11.5,
   },
   activeIndicator: {
-    position: 'absolute',
-    bottom: -Spacing.sm,
-    left: '50%',
-    marginLeft: -12,
-    width: 24,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: Colors.primary,
+    width: 14,
+    height: 2.5,
+    borderRadius: 1.5,
+    backgroundColor: '#0F4A2B',
+    marginTop: 3,
+  },
+  homeIndicator: {
+    width: 128,
+    height: 4.5,
+    borderRadius: 2.5,
+    backgroundColor: '#1E293B',
+    alignSelf: 'center',
+    marginTop: 8,
+    opacity: 0.8,
   },
 });
 

@@ -27,6 +27,10 @@ export interface FloatingMapButtonProps {
   backgroundColor?: string;
   /** Optional badge count (for notification bell) */
   badgeCount?: number;
+  /** Show dot badge only */
+  dotOnly?: boolean;
+  /** Badge color */
+  badgeColor?: string;
   /** Button diameter */
   diameter?: number;
   /** Press handler */
@@ -42,6 +46,8 @@ const FloatingMapButton: React.FC<FloatingMapButtonProps> = ({
   iconColor = Colors.textPrimary,
   backgroundColor = Colors.white,
   badgeCount,
+  dotOnly = false,
+  badgeColor = Colors.primaryVibrant,
   diameter = 44,
   onPress,
   style,
@@ -64,13 +70,15 @@ const FloatingMapButton: React.FC<FloatingMapButtonProps> = ({
     >
       <Icon library={iconLibrary} name={iconName} size={iconSize} color={iconColor} />
 
-      {badgeCount !== undefined && badgeCount > 0 && (
-        <View style={styles.badge}>
+      {dotOnly ? (
+        <View style={[styles.dotBadge, { backgroundColor: badgeColor }]} />
+      ) : badgeCount !== undefined && badgeCount > 0 ? (
+        <View style={[styles.badge, { backgroundColor: badgeColor }]}>
           <Typography variant="xs" weight="bold" color={Colors.white}>
             {badgeCount > 99 ? '99+' : badgeCount}
           </Typography>
         </View>
-      )}
+      ) : null}
     </TouchableOpacity>
   );
 };
@@ -79,6 +87,16 @@ const styles = StyleSheet.create({
   button: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  dotBadge: {
+    position: 'absolute',
+    top: 9,
+    right: 10,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: Colors.white,
   },
   badge: {
     position: 'absolute',
@@ -95,5 +113,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.white,
   },
 });
+
+
 
 export default FloatingMapButton;
