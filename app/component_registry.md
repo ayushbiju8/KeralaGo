@@ -71,8 +71,8 @@ Combinations of two or more atoms performing a focused UI function.
 | Component | File | Key Composed Atoms | Used In | Status |
 | :--- | :--- | :--- | :--- | :--- |
 | `FloatingSearchBar` | `molecules/FloatingSearchBar.tsx` | `Icon` + `Typography` + time pill `Button` | Customer Home | ✅ Implemented |
-| `FloatingMapButton` | `molecules/FloatingMapButton.tsx` | `Icon` + badge counter | All map screens (bell, location, SOS, back) | ✅ Implemented |
-| `ServiceCategoryCard` | `molecules/ServiceCategoryCard.tsx` | `Icon` + `Typography` + optional `Badge` | Customer Home grid | ✅ Implemented |
+| `FloatingMapButton` | `molecules/FloatingMapButton.tsx` | `Icon` + badge counter / dotOnly badge | All map screens (bell, location, SOS, back) | ✅ Implemented |
+| `ServiceCategoryCard` | `molecules/ServiceCategoryCard.tsx` | `Image` / 3D Asset / `Icon` + `Typography` + optional `Badge` | Customer Home grid | ✅ Implemented |
 | `LocationListItem` | `molecules/LocationListItem.tsx` | icon circle + `Typography` + `Divider` + chevron | Customer Home Recent list | ✅ Implemented |
 | `RoutePointRow` | `molecules/RoutePointRow.tsx` | pickup dot + connector line + dropoff pin + `Typography` | Booking, Driver request, Active ride | ✅ Implemented |
 | `StatCard` | `molecules/StatCard.tsx` | `Icon` + `Typography` + `Badge` (trend) + `Card` | Admin Dashboard, Driver Home | ✅ Implemented |
@@ -82,7 +82,8 @@ Combinations of two or more atoms performing a focused UI function.
 | `UserListItem` | `molecules/UserListItem.tsx` | `Avatar` + `Typography` + `RatingStar` + `Badge` + chevron | Admin Drivers/Customers lists | ✅ Implemented |
 | `PaymentOptionItem` | `molecules/PaymentOptionItem.tsx` | `Icon` + `Typography` + `Radio` | Customer Payment Methods | ✅ Implemented |
 | `ProgressBar` | `molecules/ProgressBar.tsx` | Animated fill bar + `Typography` label | Driver Home progress, Customer trip tracker | ✅ Implemented |
-| `KeralaMapBackground` | `molecules/KeralaMapBackground.tsx` | Backwaters + Kochi road grid + landmark markers + vehicle markers + user radar pulse | Customer Home, Driver Home | ✅ Implemented |
+| `KeralaMapBackground` | `molecules/KeralaMapBackground.tsx` | Live Google Maps (`react-native-maps` on Native + Embed on Web) with custom Kerala green theme, MACE center, live vehicle markers, and Pickup Point callout | Customer Home, Driver Home | ✅ Implemented |
+| `SheetDecorativeWave` | `molecules/SheetDecorativeWave.tsx` | Green contour waves + dashed trail + mini green car + destination pin | Customer Home bottom sheet | ✅ Implemented |
 
 ---
 

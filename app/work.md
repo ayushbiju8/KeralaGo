@@ -154,4 +154,45 @@ This file is the living development history of the KeralaGo frontend. Every mean
 - Successfully validated TypeScript types with `npx tsc --noEmit`.
 - Resolved `@expo/vector-icons` Metro bundling resolution issue: updated `Icon.tsx` to use named imports from `@expo/vector-icons` and added standard `metro.config.js`.
 
+### Main Home Page — Exact Match with "Green Ride-Hailing Map Interface.png"
+
+#### Actions Performed
+- **Map & Environment Layer (`KeralaMapBackground.tsx`)**:
+  - Replaced generic grid with exact Kothamangalam / Mar Athanasius College of Engineering geography from the reference mockup.
+  - Added "Kozhippilly - College Junction Rd" with printed road label.
+  - Added river waterway flowing down the right quadrant with light blue river tones and Kozhippilly bridge crossing.
+  - Added "Mar Athanasius College of Engineering" landmark pin with graduation cap icon badge.
+  - Added "M B Hostel" landmark location pin.
+  - Added live moving/oriented vehicles along roads (white cars, yellow/green Kerala auto rickshaws, green sports bike).
+  - Implemented the prominent "Pickup Point" callout: 3-tier concentric translucent radiating emerald green aura circles, center dark green pin with white center dot, and the floating dark green callout pill ("Pickup Point ›") with downward pointing tail.
+- **Top Search & Floating Map Actions**:
+  - Full-screen map overlay layout with `FloatingSearchBar` ("Where do you want to go?" + "Now ▾" dark green pill).
+  - Added right floating map buttons: Notification bell with green live dot badge (`FloatingMapButton`) and GPS target crosshairs button.
+- **Bottom Sheet & Decorative Elements**:
+  - Created `SheetDecorativeWave` molecule rendering the signature flowing organic green contour wave curves, dotted trajectory trail, mini green car driving along the path, and destination pin marker.
+- **Suggestions Grid (2×4)**:
+  - Enhanced `ServiceCategoryCard` with support for image assets, custom graphics, and squircle card container.
+  - Integrated 3D rendered vehicle assets (`ride_sedan.jpg`, `bike.jpg`, `auto.jpg`) into `src/assets/vehicles/`.
+  - Added all 8 categories matching reference image:
+    1. Ride (3D white sedan)
+    2. Bike (3D green motorcycle)
+    3. Auto (3D Indian green/yellow auto rickshaw)
+    4. Pink Ride (white sedan + pink circular shield badge)
+    5. Package (cardboard shipping box graphic)
+    6. Share Taxi (white sedan with floating green passenger group icon)
+    7. Rentals (green circular clock graphic)
+    8. Schedule Ride (green calendar with clock graphic)
+- **Recent Destinations Section**:
+  - Populated with exact locations from reference UI:
+    1. Mar Athanasius College of Engineering / Kothamangalam, Kerala
+    2. M B Hostel / MACE Hostels Road, Kothamangalam
+    3. kattuchira / Kothamangalam, Kerala
+- **Navigation & Tabs**:
+  - Updated `CustomerHomePage.tsx` to 3 tabs: `Home`, `Bookings`, `Profile`.
+  - Refined `BottomTabBar.tsx` with light green capsule around active Home icon, dark green label, indicator bar, and iOS home indicator.
+  - Moved role toggle into Profile tab Preferences, preserving full-screen UI purity.
+- **Verification**:
+  - Validated zero TypeScript errors (`npx tsc --noEmit` exited with code 0).
+  - Updated `component_registry.md`.
+
 

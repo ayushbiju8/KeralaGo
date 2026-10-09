@@ -1,32 +1,26 @@
 /**
  * Organism: RideSelectionList
  *
- * The "Choose a ride" list where customers select a vehicle type.
- * Each row shows: vehicle icon, service name, ETA, price range, selected border.
- *
- * Services: Car, Bike, Auto, Share Taxi, Pink Ride (women-only)
- *
- * Reference: Customer Booking — "Choose a ride" bottom sheet (2nd screen)
+ * Exact replication of "Choose a ride" list from Column 2 of "KeralaGo Ride Booking App UI Flow.png".
+ * Displays 5 ride options: Car, Bike, Auto, Share Taxi, Pink Ride.
+ * Uses the exact same transparent PNG logos as vehicle suggestions.
  */
 
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet, ViewStyle, FlatList } from 'react-native';
-import Icon, { IconLibrary } from '../atoms/Icon';
+import { View, TouchableOpacity, StyleSheet, ViewStyle, Image, ImageSourcePropType } from 'react-native';
 import Typography from '../atoms/Typography';
-import Badge from '../atoms/Badge';
-import Card from '../atoms/Card';
-import { Colors, Spacing, Radii } from '../../constants/theme';
+import { Colors, Spacing } from '../../constants/theme';
 
 export interface RideOption {
   id: string;
   label: string;
-  iconName: string;
-  iconLibrary?: IconLibrary;
-  iconColor?: string;
-  etaMinutes: number;
+  subtitle?: string;
+  tagline?: string;
+  imageSource?: ImageSourcePropType;
+  etaMinutes?: number;
   priceMin: number;
   priceMax: number;
-  /** For Pink Ride — women only label */
+  priceFormatted?: string;
   womensOnly?: boolean;
   disabled?: boolean;
 }
@@ -49,7 +43,7 @@ const RideSelectionList: React.FC<RideSelectionListProps> = ({
   style,
 }) => {
   return (
-    <View style={style}>
+    <View style={[styles.container, style]}>
       {options.map((item) => {
         const isSelected = item.id === selectedId;
 
@@ -61,37 +55,33 @@ const RideSelectionList: React.FC<RideSelectionListProps> = ({
               isSelected && styles.rowSelected,
             ]}
             onPress={() => onSelect(item.id)}
-            activeOpacity={0.8}
+            activeOpacity={0.78}
             disabled={item.disabled}
           >
-            {/* Vehicle icon */}
-            <View style={[styles.iconWrap, item.womensOnly && { backgroundColor: '#FCE7F3' }]}>
-              <Icon
-                library={item.iconLibrary ?? 'MaterialCommunityIcons'}
-                name={item.iconName}
-                size="xl"
-                color={item.womensOnly ? Colors.pinkRide : (item.iconColor ?? Colors.primary)}
-              />
+            {/* Vehicle image asset */}
+            <View style={styles.imageWrap}>
+              {item.imageSource && (
+                <Image
+                  source={item.imageSource}
+                  style={styles.vehicleImage}
+                  resizeMode="contain"
+                />
+              )}
             </View>
 
-            {/* Info */}
+            {/* Title & Subtitle */}
             <View style={styles.info}>
-              <View style={styles.nameRow}>
-                <Typography variant="body2" weight="semiBold" color={Colors.textPrimary}>
-                  {item.label}
-                </Typography>
-                {item.womensOnly && (
-                  <Badge variant="pink" label="Women only" size="sm" style={{ marginLeft: Spacing.sm }} />
-                )}
-              </View>
-              <Typography variant="caption" color={Colors.textMuted}>
-                {item.etaMinutes} min away
+              <Typography variant="body1" weight="bold" color="#0F172A">
+                {item.label}
+              </Typography>
+              <Typography variant="caption" color="#64748B" style={styles.subtitleText}>
+                {item.subtitle || `${item.etaMinutes} min away`}
               </Typography>
             </View>
 
             {/* Price */}
-            <Typography variant="body2" weight="semiBold" color={Colors.textPrimary}>
-              ₹{item.priceMin}–{item.priceMax}
+            <Typography variant="body1" weight="bold" color="#0F172A">
+              {item.priceFormatted || `₹${item.priceMin} - ${item.priceMax}`}
             </Typography>
           </TouchableOpacity>
         );
@@ -101,37 +91,41 @@ const RideSelectionList: React.FC<RideSelectionListProps> = ({
 };
 
 const styles = StyleSheet.create({
+  container: {
+    gap: 4,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: Spacing.md,
-    marginBottom: Spacing.sm,
-    borderRadius: Radii.lg,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: Colors.transparent,
-    backgroundColor: Colors.surface,
+    borderColor: 'transparent',
+    backgroundColor: 'transparent',
   },
   rowSelected: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.mintLight,
+    borderColor: '#22C55E',
+    backgroundColor: '#EDF8F1',
   },
-  iconWrap: {
-    width: 60,
-    height: 44,
+  imageWrap: {
+    width: 66,
+    height: 42,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.mint,
-    borderRadius: Radii.md,
     marginRight: Spacing.md,
+  },
+  vehicleImage: {
+    width: 64,
+    height: 40,
   },
   info: {
     flex: 1,
-    marginRight: Spacing.sm,
-    gap: 2,
+    justifyContent: 'center',
   },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  subtitleText: {
+    marginTop: 2,
+    fontSize: 12,
   },
 });
 

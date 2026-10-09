@@ -1,0 +1,348 @@
+{
+  "serviceCategories": [
+    {
+      "id": "ride",
+      "label": "Ride",
+      "iconName": "car",
+      "iconLibrary": "Ionicons",
+      "iconColor": "#0F4A2B",
+      "iconBg": "#F0F8F4",
+      "defaultDestination": "Mar Athanasius College of Engineering"
+    },
+    {
+      "id": "bike",
+      "label": "Bike",
+      "iconName": "bicycle",
+      "iconLibrary": "Ionicons",
+      "iconColor": "#10B981",
+      "iconBg": "#F0F8F4",
+      "defaultDestination": "M B Hostel"
+    },
+    {
+      "id": "auto",
+      "label": "Auto",
+      "iconName": "rickshaw",
+      "iconLibrary": "MaterialCommunityIcons",
+      "iconColor": "#F59E0B",
+      "iconBg": "#F0F8F4",
+      "defaultDestination": "kattuchira"
+    },
+    {
+      "id": "pink",
+      "label": "Pink Ride",
+      "iconName": "shield-checkmark",
+      "iconLibrary": "Ionicons",
+      "iconColor": "#EC4899",
+      "iconBg": "#F0F8F4",
+      "badgeLabel": "Women",
+      "defaultDestination": "Mar Athanasius College of Engineering"
+    },
+    {
+      "id": "package",
+      "label": "Package",
+      "iconName": "cube-outline",
+      "iconLibrary": "Ionicons",
+      "iconColor": "#D97706",
+      "iconBg": "#F0F8F4",
+      "defaultDestination": "M B Hostel"
+    },
+    {
+      "id": "share",
+      "label": "Share Taxi",
+      "iconName": "people",
+      "iconLibrary": "Ionicons",
+      "iconColor": "#10B981",
+      "iconBg": "#F0F8F4",
+      "defaultDestination": "Kozhippilly Junction"
+    },
+    {
+      "id": "rentals",
+      "label": "Rentals",
+      "iconName": "time",
+      "iconLibrary": "Ionicons",
+      "iconColor": "#0F4A2B",
+      "iconBg": "#F0F8F4",
+      "defaultDestination": "Munnar Road"
+    },
+    {
+      "id": "schedule",
+      "label": "Schedule Ride",
+      "iconName": "calendar",
+      "iconLibrary": "Ionicons",
+      "iconColor": "#0F4A2B",
+      "iconBg": "#F0F8F4",
+      "defaultDestination": "Cochin Airport (COK)"
+    }
+  ],
+  "rideOptions": [
+    {
+      "id": "auto",
+      "label": "Kerala Auto",
+      "iconName": "rickshaw",
+      "iconLibrary": "MaterialCommunityIcons",
+      "iconColor": "#F59E0B",
+      "etaMinutes": 2,
+      "priceMin": 45,
+      "priceMax": 60,
+      "description": "Standard meter regulated 3-wheeler auto"
+    },
+    {
+      "id": "ride",
+      "label": "KeralaGO Ride",
+      "iconName": "car-side",
+      "iconLibrary": "MaterialCommunityIcons",
+      "iconColor": "#0F4A2B",
+      "etaMinutes": 3,
+      "priceMin": 90,
+      "priceMax": 120,
+      "description": "Clean, comfortable hatchback & sedan"
+    },
+    {
+      "id": "car",
+      "label": "KeralaGO Comfort",
+      "iconName": "car-side",
+      "iconLibrary": "MaterialCommunityIcons",
+      "iconColor": "#1B5E20",
+      "etaMinutes": 4,
+      "priceMin": 120,
+      "priceMax": 150,
+      "description": "AC hatchback & sedan with top drivers"
+    },
+    {
+      "id": "pink",
+      "label": "Pink Ride (Women)",
+      "iconName": "shield-car",
+      "iconLibrary": "MaterialCommunityIcons",
+      "iconColor": "#E91E63",
+      "etaMinutes": 5,
+      "priceMin": 110,
+      "priceMax": 135,
+      "womensOnly": true,
+      "description": "Verified women drivers for women passengers"
+    },
+    {
+      "id": "bike",
+      "label": "KeralaGO Bike",
+      "iconName": "motorbike",
+      "iconLibrary": "MaterialCommunityIcons",
+      "iconColor": "#10B981",
+      "etaMinutes": 1,
+      "priceMin": 30,
+      "priceMax": 40,
+      "description": "Quick helmet-provided two-wheeler transit"
+    },
+    {
+      "id": "share",
+      "label": "Share Taxi",
+      "iconName": "account-group",
+      "iconLibrary": "MaterialCommunityIcons",
+      "iconColor": "#00897B",
+      "etaMinutes": 6,
+      "priceMin": 50,
+      "priceMax": 65,
+      "description": "Shared route ride along major transit corridors"
+    }
+  ],
+  "recentDestinations": [
+    {
+      "id": "dest-1",
+      "title": "Mar Athanasius College of Engineering",
+      "subtitle": "Kothamangalam, Kerala",
+      "iconName": "time-outline",
+      "distanceKm": 1.2,
+      "fareEstimate": 45
+    },
+    {
+      "id": "dest-2",
+      "title": "M B Hostel",
+      "subtitle": "MACE Hostels Road, Kothamangalam",
+      "iconName": "time-outline",
+      "distanceKm": 0.8,
+      "fareEstimate": 35
+    },
+    {
+      "id": "dest-3",
+      "title": "kattuchira",
+      "subtitle": "Kothamangalam, Kerala",
+      "iconName": "time-outline",
+      "distanceKm": 2.4,
+      "fareEstimate": 60
+    }
+  ],
+  "savedLocations": [
+    {
+      "id": "saved-1",
+      "label": "Home",
+      "title": "Jawahar Nagar, Kadavanthra",
+      "subtitle": "Near Rajiv Gandhi Indoor Stadium, Kochi",
+      "iconName": "home-outline"
+    },
+    {
+      "id": "saved-2",
+      "label": "Work",
+      "title": "Carnival Infopark Phase 2",
+      "subtitle": "Kusumagiri PO, Kakkanad, Kochi",
+      "iconName": "briefcase-outline"
+    }
+  ],
+  "tripsHistory": [
+    {
+      "id": "KL-TRIP-901",
+      "timeAgo": "Today, 10:30 AM",
+      "pickup": "Infopark Phase 1, Kakkanad",
+      "dropoff": "Lulu Mall, Edappally",
+      "fare": "₹142",
+      "status": "completed",
+      "vehicleType": "KeralaGO Comfort",
+      "driverName": "Suresh Pillai",
+      "distance": "8.4 km",
+      "duration": "22 mins"
+    },
+    {
+      "id": "KL-TRIP-882",
+      "timeAgo": "Yesterday, 6:15 PM",
+      "pickup": "Ernakulam South Station",
+      "dropoff": "Marine Drive Promenade",
+      "fare": "₹55",
+      "status": "completed",
+      "vehicleType": "Kerala Auto",
+      "driverName": "Manoj Kumar",
+      "distance": "3.1 km",
+      "duration": "12 mins"
+    },
+    {
+      "id": "KL-TRIP-840",
+      "timeAgo": "04 Oct, 2:40 PM",
+      "pickup": "Fort Kochi Bus Stand",
+      "dropoff": "Vyttila Mobility Hub",
+      "fare": "₹120",
+      "status": "completed",
+      "vehicleType": "Pink Ride",
+      "driverName": "Bindu S.",
+      "distance": "12.0 km",
+      "duration": "35 mins"
+    },
+    {
+      "id": "KL-TRIP-812",
+      "timeAgo": "01 Oct, 11:20 AM",
+      "pickup": "Lulu Mall, Edappally",
+      "dropoff": "Palarivattom Junction",
+      "fare": "₹45",
+      "status": "cancelled",
+      "vehicleType": "Kerala Auto",
+      "driverName": "Anand P.",
+      "distance": "2.4 km",
+      "duration": "Cancelled by passenger"
+    }
+  ],
+  "walletData": {
+    "balance": 420.50,
+    "cashbackEarned": 185.00,
+    "greenEcoKm": 142,
+    "paymentOptions": [
+      {
+        "id": "upi",
+        "title": "UPI (Google Pay / PhonePe)",
+        "subtitle": "Linked ID: arun@okaxis",
+        "iconName": "flash-outline",
+        "recommended": true
+      },
+      {
+        "id": "wallet",
+        "title": "KeralaGO Wallet",
+        "subtitle": "Balance: ₹420.50 available",
+        "iconName": "wallet-outline",
+        "recommended": false
+      },
+      {
+        "id": "card",
+        "title": "HDFC Platinum Debit Card",
+        "subtitle": "•••• •••• •••• 4821",
+        "iconName": "card-outline",
+        "recommended": false
+      },
+      {
+        "id": "cash",
+        "title": "Cash on Arrival",
+        "subtitle": "Pay exact change to driver",
+        "iconName": "cash-outline",
+        "recommended": false
+      }
+    ],
+    "transactions": [
+      {
+        "id": "tx-1",
+        "title": "Ride Fare #KL-TRIP-901",
+        "date": "Today, 10:52 AM",
+        "amount": "₹142.00",
+        "isCredit": false,
+        "type": "Ride Payment"
+      },
+      {
+        "id": "tx-2",
+        "title": "Wallet Top-up via GPay",
+        "date": "05 Oct, 4:10 PM",
+        "amount": "+₹500.00",
+        "isCredit": true,
+        "type": "Top-up"
+      },
+      {
+        "id": "tx-3",
+        "title": "Ride Fare #KL-TRIP-882",
+        "date": "Yesterday, 6:27 PM",
+        "amount": "₹55.00",
+        "isCredit": false,
+        "type": "Ride Payment"
+      },
+      {
+        "id": "tx-4",
+        "title": "Eco Green Ride Cashback",
+        "date": "04 Oct, 3:15 PM",
+        "amount": "+₹25.00",
+        "isCredit": true,
+        "type": "Rewards"
+      }
+    ]
+  },
+  "customerProfile": {
+    "name": "Arun Kumar",
+    "phone": "+91 98470 12345",
+    "email": "arun.kerala@example.com",
+    "avatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80",
+    "rating": 4.88,
+    "totalRides": 34,
+    "greenKm": 142,
+    "emergencyContacts": [
+      {
+        "name": "Kerala Police SOS",
+        "phone": "112",
+        "relation": "State Emergency Control"
+      },
+      {
+        "name": "Deepa Kumar",
+        "phone": "+91 98472 55667",
+        "relation": "Spouse"
+      }
+    ]
+  },
+  "activeRideSim": {
+    "driverName": "Suresh Pillai",
+    "driverRating": 4.94,
+    "driverTotalTrips": 1420,
+    "driverAvatar": "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=150&q=80",
+    "vehicleName": "KeralaGO Auto",
+    "vehiclePlate": "KL-07-CD-4589",
+    "vehicleColor": "Traditional Yellow & Green",
+    "otpPin": "4821",
+    "etaMinutes": 3,
+    "pickup": "Infopark Phase 1, Kakkanad",
+    "dropoff": "Lulu Mall, Edappally",
+    "estimatedFare": 65,
+    "fareBreakdown": [
+      { "label": "Base Meter Fare", "amount": 30.00 },
+      { "label": "Distance (4.2 km)", "amount": 28.00 },
+      { "label": "Government Tax & Levies", "amount": 4.50 },
+      { "label": "Green Kerala Platform Fee", "amount": 2.50 }
+    ]
+  }
+}
