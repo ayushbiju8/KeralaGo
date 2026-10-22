@@ -105,7 +105,6 @@ const Avatar: React.FC<AvatarProps> = ({
 const styles = StyleSheet.create({
   wrapper: {
     position: 'relative',
-    alignSelf: 'flex-start',
   },
   container: {
     overflow: 'hidden',

@@ -40,3 +40,9 @@ export type { ProgressBarProps } from './ProgressBar';
 export { default as KeralaMapBackground } from './KeralaMapBackground';
 export { default as SheetDecorativeWave } from './SheetDecorativeWave';
 
+export { default as DriverHeroCarBanner } from './DriverHeroCarBanner';
+export type { DriverHeroCarBannerProps } from './DriverHeroCarBanner';
+
+export { default as SwipeButton } from './SwipeButton';
+export type { SwipeButtonProps } from './SwipeButton';
+

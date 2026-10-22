@@ -95,26 +95,33 @@ function AppNavigator() {
 ### B. Driver Partner Duty Dashboard — `src/pages/driver/DriverHomePage.tsx`
 *Active when `user.role === 'DRIVER'`*
 
-- **Driver Header & Duty Status**:
-  - Profile block: *"Suresh Pillai"* (KL-07-CC-8291, 4.94 ★ rating).
-  - Duty toggle switch: **ONLINE / OFFLINE** state.
-- **Role Switch Banner**:
-  - Interactive switch allowing instant toggle back to **Customer (USER)** mode.
-- **Performance & Earnings Summary (`StatCard`)**:
-  - **Today's Earnings**: `₹1,840` (+14% today).
-  - **Completed Trips**: `8` (96% acceptance rate).
-- **Dispatch Radar & High Demand Hotspots**:
-  - Real-time demand indicator with surge notifications (Lulu Mall: 1.4x surge, Kakkanad Infopark: 1.2x surge).
-  - One-tap button to simulate incoming ride offer.
-- **Incoming Ride Offer Modal (`RideRequestModal`)**:
-  - 20-second circular animated countdown timer.
-  - Pickup and drop-off route visualization (`RoutePointRow`).
-  - Distance (6.4 km), estimated fare (₹185), and passenger rating (4.9 ★).
-  - Accept and Decline actions.
-- **Active Trip Mode**:
-  - When accepted, displays passenger OTP verification (`PIN: 4821`), turn-by-turn route details, call passenger button, and complete trip action.
+- **Header Bar**:
+  - Left hamburger menu icon `☰` (opens driver actions & persona switch drawer).
+  - Center brand logo: `🌴 KeralaGo` in emerald green with `Driver` subtitle.
+  - Right notification bell `🔔` with red indicator dot.
+- **Hero Car Banner (`DriverHeroCarBanner`)**:
+  - Soft pastel Kerala rolling hills background with coconut palm silhouettes.
+  - Centered modern white sedan illustration in perspective with subtle ground shadow.
+  - Prominent floating **"✔ Online" / "Offline"** duty pill with emerald toggle switch (`Switch`).
+- **Summary Metrics Card (`Card`)**:
+  - 3-column split card with vertical dividers:
+    - **12** Trips today
+    - **₹1,240** Earnings
+    - **4.8** Rating
+- **Today's Progress Card**:
+  - Header: *"Today's Progress"* on the left with milestone gift box icon (`🎁`).
+  - Animated progress bar (`ProgressBar`) filled in Kerala emerald green.
+- **Peak Hours Alert Card**:
+  - Soft mint background with green bar chart icon.
+  - Title: *"Peak hours are live!"* + subtitle: *"More ride requests in your area"*.
+  - Chevron right trigger.
+- **Upcoming Opportunities Section**:
+  - High-demand opportunity card: *"Near MACE"*, *"High demand area"*, `+20% earnings`.
+  - Action pill button with navigation arrow: *"Navigate"*.
 - **Driver Navigation Bar (`BottomTabBar`)**:
-  - Four driver tabs: `Duty`, `Earnings`, `Trips`, and `Profile`.
+  - Four driver tabs matching reference design: `Home`, `Earnings`, `Bookings`, and `Profile`.
+- **Drawer / Menu BottomSheet**:
+  - Allows quick testing and seamless toggle back to Customer mode (`toggleRole()`).
 
 ---
 

@@ -1,14 +1,16 @@
-import React, { useRef, useEffect, useMemo } from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   View,
   StyleSheet,
   Dimensions,
   Text,
   Platform,
+  TouchableOpacity,
+  ViewStyle,
 } from 'react-native';
 import Icon from '../atoms/Icon';
 import Typography from '../atoms/Typography';
-import { Colors, Shadows } from '../../constants/theme';
+import { Colors, Shadows, Radii } from '../../constants/theme';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -107,6 +109,13 @@ export interface KeralaMapBackgroundProps {
   showVehicles?: boolean;
   activeDestination?: string | null;
   pickupLocation?: string;
+  variant?: 'customer' | 'driver';
+  height?: number;
+  offsetY?: number;
+  style?: ViewStyle;
+  onLocatePress?: () => void;
+  onLayersPress?: () => void;
+  onNavigatePress?: () => void;
 }
 
 /**
@@ -172,9 +181,10 @@ const KERALA_MAP_STYLE = [
  * Molecule: KeralaMapBackground
  *
  * Real Live Google Map of Kothamangalam / Mar Athanasius College of Engineering:
- * - Direct Google Maps JavaScript SDK instance on Web
+ * - Direct Google Maps JavaScript SDK instance on Web for both Customer & Driver pages
  * - Interactive zooming, panning, and real-time street map rendering
- * - Prominent "Pickup Point >" callout with concentric pulsing radar rings
+ * - Prominent "Pickup Point >" callout with pin in customer mode
+ * - Driver location beacon, Highway 85 / MACE landmarks & floating map controls in driver mode
  * - Stationed live vehicles (sedans, auto-rickshaws, bikes) on real streets
  * - Dynamic route polyline when selecting destinations
  */
@@ -182,6 +192,13 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
   showVehicles = true,
   activeDestination,
   pickupLocation,
+  variant = 'customer',
+  height: customHeight,
+  offsetY = 0,
+  style,
+  onLocatePress,
+  onLayersPress,
+  onNavigatePress,
 }) => {
   const mapDivRef = useRef<any>(null);
   const googleMapInstance = useRef<any>(null);
@@ -190,7 +207,8 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
   const directionsServiceRef = useRef<any>(null);
   const directionsRendererRef = useRef<any>(null);
 
-  const pickupPoint = getLocationPoint(pickupLocation);
+  const isDriver = variant === 'driver';
+  const pickupPoint = getLocationPoint(pickupLocation || (isDriver ? 'Mar Athanasius College of Engineering' : undefined));
   const destPoint = activeDestination ? getLocationPoint(activeDestination) : null;
 
   // Sync Google Maps markers & route on activeDestination / pickupLocation change
@@ -213,11 +231,11 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
 
     const pLatLng = new google.maps.LatLng(pickupPoint.lat, pickupPoint.lng);
 
-    // Pickup Marker (Pin Icon)
+    // Marker (Pin Icon)
     pickupMarkerRef.current = new google.maps.Marker({
       position: pLatLng,
       map: googleMapInstance.current,
-      title: `Pickup: ${pickupPoint.title}`,
+      title: isDriver ? 'Driver Location: Near MACE' : `Pickup: ${pickupPoint.title}`,
       icon: {
         path: 'M 0,0 C -2,-18 -9,-20 -9,-27 A 9,9 0 1,1 9,-27 C 9,-20 2,-18 0,0 Z',
         scale: 1.1,
@@ -247,7 +265,7 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
         },
       });
 
-      // Real driving road route via DirectionsService (No straight lines)
+      // Real driving road route via DirectionsService
       try {
         if (google.maps.DirectionsService && google.maps.DirectionsRenderer) {
           if (!directionsServiceRef.current) {
@@ -280,7 +298,7 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
           );
         }
       } catch (err) {
-        // Do not render any mock straight lines
+        // Fallback gracefully
       }
 
       const bounds = new google.maps.LatLngBounds();
@@ -361,24 +379,30 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
   }, [activeDestination, pickupLocation]);
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        customHeight ? { height: customHeight } : null,
+        style,
+      ]}
+    >
       {/* ── Base Styled Terrain Background (Ensures zero blank flash) ── */}
       <View style={styles.baseTerrain}>
-        <View style={[styles.greenParcel, { top: SCREEN_HEIGHT * 0.04, left: -20, width: 150, height: 120, borderRadius: 32 }]} />
-        <View style={[styles.greenParcel, { top: SCREEN_HEIGHT * 0.12, left: SCREEN_WIDTH * 0.22, width: 130, height: 100, borderRadius: 28 }]} />
-        <View style={[styles.greenParcel, { top: SCREEN_HEIGHT * 0.22, left: SCREEN_WIDTH * 0.05, width: 140, height: 130, borderRadius: 32 }]} />
-        <View style={styles.riverCurveMain} />
-        <View style={styles.kozhippillyRoad}>
+        <View style={[styles.greenParcel, { top: SCREEN_HEIGHT * 0.04 + offsetY, left: -20, width: 150, height: 120, borderRadius: 32 }]} />
+        <View style={[styles.greenParcel, { top: SCREEN_HEIGHT * 0.12 + offsetY, left: SCREEN_WIDTH * 0.22, width: 130, height: 100, borderRadius: 28 }]} />
+        <View style={[styles.greenParcel, { top: SCREEN_HEIGHT * 0.22 + offsetY, left: SCREEN_WIDTH * 0.05, width: 140, height: 130, borderRadius: 32 }]} />
+        <View style={[styles.riverCurveMain, { top: -20 + offsetY }]} />
+        <View style={[styles.kozhippillyRoad, { top: SCREEN_HEIGHT * 0.10 + offsetY }]}>
           <Text style={styles.roadLabelText}>Kozhippilly - College Junction Rd</Text>
         </View>
-        <View style={styles.riverBridge} />
-        <View style={styles.riverBankRoad} />
-        <View style={styles.roadResidential1} />
-        <View style={styles.roadResidential2} />
-        <View style={styles.roadResidential3} />
+        <View style={[styles.riverBridge, { top: SCREEN_HEIGHT * 0.14 + offsetY }]} />
+        <View style={[styles.riverBankRoad, { top: -30 + offsetY }]} />
+        <View style={[styles.roadResidential1, { top: SCREEN_HEIGHT * 0.16 + offsetY }]} />
+        <View style={[styles.roadResidential2, { top: SCREEN_HEIGHT * 0.23 + offsetY }]} />
+        <View style={[styles.roadResidential3, { top: SCREEN_HEIGHT * 0.28 + offsetY }]} />
       </View>
 
-      {/* ── Real Live Google Map Container ── */}
+      {/* ── Real Live Google Map Container on Web ── */}
       {Platform.OS === 'web' && (
         <View
           ref={mapDivRef}
@@ -388,29 +412,30 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
 
       {/* ── Overlaid Interactive Markers & Vehicle Layer ── */}
       <View style={styles.overlayLayer} pointerEvents="box-none">
+        {/* Customer Mode: "Pickup Point >" Pin Callout */}
+        {!isDriver && (
+          <View style={[styles.pickupPointRoot, { top: pickupPoint.top, left: pickupPoint.left }]}>
+            <View style={styles.calloutPill}>
+              <Text style={styles.calloutText} numberOfLines={1}>
+                {pickupLocation && pickupLocation.length > 20
+                  ? pickupLocation.substring(0, 18) + '...'
+                  : (pickupLocation || 'Pickup Point')}
+              </Text>
+              <Icon library="Ionicons" name="chevron-forward" size={13} color={Colors.white} />
+            </View>
+            <View style={styles.calloutTriangle} />
 
-        {/* Pickup / Current Location Pin Marker */}
-        <View style={[styles.pickupPointRoot, { top: pickupPoint.top, left: pickupPoint.left }]}>
-          <View style={styles.calloutPill}>
-            <Text style={styles.calloutText} numberOfLines={1}>
-              {pickupLocation && pickupLocation.length > 20
-                ? pickupLocation.substring(0, 18) + '...'
-                : (pickupLocation || 'Pickup Point')}
-            </Text>
-            <Icon library="Ionicons" name="chevron-forward" size={13} color={Colors.white} />
+            {/* Pin Marker */}
+            <View style={styles.pinSymbolWrap}>
+              <Icon library="Ionicons" name="location-sharp" size={38} color="#0F4A2B" />
+              <View style={styles.pinWhiteCircle} />
+            </View>
+            <View style={styles.pinGroundShadow} />
           </View>
-          <View style={styles.calloutTriangle} />
+        )}
 
-          {/* Pin Marker instead of concentric circles */}
-          <View style={styles.pinSymbolWrap}>
-            <Icon library="Ionicons" name="location-sharp" size={38} color="#0F4A2B" />
-            <View style={styles.pinWhiteCircle} />
-          </View>
-          <View style={styles.pinGroundShadow} />
-        </View>
-
-        {/* Destination Marker */}
-        {destPoint && (
+        {/* Customer Mode: Destination Marker */}
+        {!isDriver && destPoint && (
           <View
             style={[
               styles.destinationMarkerRoot,
@@ -427,26 +452,110 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
           </View>
         )}
 
+        {/* Driver Mode: Location Beacon & Floating Controls */}
+        {isDriver && (
+          <>
+            {/* Location Pin Badge: "Near MACE / Kothamangalam" */}
+            <View style={[styles.driverLocationPinCard, { top: 48 + offsetY }]}>
+              <View style={styles.driverLocationPinCircle}>
+                <Icon library="Ionicons" name="location-sharp" size={15} color={Colors.white} />
+              </View>
+              <View style={{ marginLeft: 6 }}>
+                <Typography variant="caption" weight="bold" color={Colors.textPrimary}>
+                  Near MACE
+                </Typography>
+                <Typography variant="xs" color={Colors.textSecondary} style={{ fontSize: 10 }}>
+                  Kothamangalam
+                </Typography>
+              </View>
+            </View>
+
+            {/* MACE College Landmark Pin */}
+            <View style={[styles.maceLandmark, { top: 58 + offsetY }]}>
+              <View style={styles.maceIconWrap}>
+                <Icon library="MaterialIcons" name="school" size={12} color="#64748B" />
+              </View>
+              <View>
+                <Typography variant="xs" weight="bold" color="#334155" style={{ fontSize: 9 }}>
+                  MACE
+                </Typography>
+                <Typography variant="xs" color="#64748B" style={{ fontSize: 8 }}>
+                  College of Engineering
+                </Typography>
+              </View>
+            </View>
+
+            {/* Blue Location Dot with Radar Ring */}
+            <View style={[styles.driverBlueDotAura, { top: 120 + offsetY }]}>
+              <View style={styles.driverBlueDotRing} />
+              <View style={styles.driverBlueDotCenter} />
+            </View>
+
+            {/* Driver Sedan on Road */}
+            <View style={[styles.driverCarMarker, { top: 148 + offsetY }]}>
+              <View style={styles.carBodyShadow} />
+              <View style={styles.carBody}>
+                <View style={styles.carWindshieldFront} />
+                <View style={styles.carRoof} />
+                <View style={styles.carWindshieldRear} />
+              </View>
+            </View>
+
+            {/* Floating Controls Column on Right (Locate, Layers, Navigate) */}
+            <View style={[styles.floatingControlsColumn, { top: 42 + offsetY }]}>
+              {onLocatePress && (
+                <TouchableOpacity
+                  style={styles.floatingMapBtn}
+                  activeOpacity={0.8}
+                  onPress={onLocatePress}
+                >
+                  <Icon library="Ionicons" name="locate" size={20} color={Colors.primary} />
+                </TouchableOpacity>
+              )}
+
+              {onLayersPress && (
+                <TouchableOpacity
+                  style={styles.floatingMapBtn}
+                  activeOpacity={0.8}
+                  onPress={onLayersPress}
+                >
+                  <Icon library="Ionicons" name="layers-outline" size={20} color={Colors.primary} />
+                </TouchableOpacity>
+              )}
+
+              {onNavigatePress && (
+                <TouchableOpacity
+                  style={styles.floatingMapBtn}
+                  activeOpacity={0.8}
+                  onPress={onNavigatePress}
+                >
+                  <Icon library="Ionicons" name="navigate" size={20} color={Colors.primary} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </>
+        )}
+
         {/* Live Moving Vehicles Stationed on Kothamangalam Roads */}
         {showVehicles && (
           <>
             {/* White car on Kozhippilly road */}
-            <MapVehicle type="car" rotation="-26deg" style={{ top: SCREEN_HEIGHT * 0.14, left: SCREEN_WIDTH * 0.27 }} />
+            <MapVehicle type="car" rotation="-26deg" style={{ top: SCREEN_HEIGHT * 0.14 + offsetY, left: SCREEN_WIDTH * 0.27 }} />
 
             {/* White car crossing bridge over river */}
-            <MapVehicle type="car" rotation="32deg" style={{ top: SCREEN_HEIGHT * 0.14, right: SCREEN_WIDTH * 0.17 }} />
+            <MapVehicle type="car" rotation="32deg" style={{ top: SCREEN_HEIGHT * 0.14 + offsetY, right: SCREEN_WIDTH * 0.17 }} />
 
             {/* Green sports bike on hostel road */}
-            <MapVehicle type="bike" rotation="-15deg" style={{ top: SCREEN_HEIGHT * 0.22, right: SCREEN_WIDTH * 0.08 }} />
+            <MapVehicle type="bike" rotation="-15deg" style={{ top: SCREEN_HEIGHT * 0.22 + offsetY, right: SCREEN_WIDTH * 0.08 }} />
 
             {/* Auto rickshaw near college junction */}
-            <MapVehicle type="auto" rotation="-10deg" style={{ top: SCREEN_HEIGHT * 0.26, right: SCREEN_WIDTH * 0.14 }} />
+            <MapVehicle type="auto" rotation="-10deg" style={{ top: SCREEN_HEIGHT * 0.26 + offsetY, right: SCREEN_WIDTH * 0.14 }} />
 
             {/* White car on residential road */}
-            <MapVehicle type="car" rotation="30deg" style={{ top: SCREEN_HEIGHT * 0.26, left: SCREEN_WIDTH * 0.18 }} />
+            <MapVehicle type="car" rotation="30deg" style={{ top: SCREEN_HEIGHT * 0.26 + offsetY, left: SCREEN_WIDTH * 0.18 }} />
 
             {/* Auto rickshaw below pickup point */}
-            <MapVehicle type="auto" rotation="65deg" style={{ top: SCREEN_HEIGHT * 0.32, left: SCREEN_WIDTH * 0.32 }} />
+            <MapVehicle type="auto" rotation="65deg" style={{ top: SCREEN_HEIGHT * 0.32 + offsetY, left: SCREEN_WIDTH * 0.32 }} />
           </>
         )}
       </View>
@@ -635,9 +744,36 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 74, 43, 0.35)',
     marginTop: -3,
   },
+  destinationMarkerRoot: {
+    position: 'absolute',
+    alignItems: 'center',
+    zIndex: 7,
+    transform: [{ translateX: -40 }, { translateY: -46 }],
+  },
+  destCalloutPill: {
+    backgroundColor: '#DC2626',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
+    marginBottom: 2,
+    ...Shadows.md,
+  },
+  destCalloutText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
   vehicleContainer: {
     position: 'absolute',
     zIndex: 5,
+  },
+  carBodyShadow: {
+    position: 'absolute',
+    bottom: -2,
+    width: 18,
+    height: 30,
+    borderRadius: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.18)',
   },
   carBody: {
     width: 16,
@@ -723,24 +859,93 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E293B',
     borderRadius: 2,
   },
-  destinationMarkerRoot: {
+  driverLocationPinCard: {
     position: 'absolute',
+    left: SCREEN_WIDTH * 0.30,
+    flexDirection: 'row',
     alignItems: 'center',
-    zIndex: 7,
-    transform: [{ translateX: -40 }, { translateY: -46 }],
-  },
-  destCalloutPill: {
-    backgroundColor: '#DC2626',
+    backgroundColor: Colors.white,
+    paddingVertical: 6,
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 14,
-    marginBottom: 2,
-    ...Shadows.md,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    ...Shadows.sm,
+    zIndex: 8,
   },
-  destCalloutText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
+  driverLocationPinCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#0F4A2B',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  maceLandmark: {
+    position: 'absolute',
+    left: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: Radii.sm,
+    ...Shadows.xs,
+    zIndex: 6,
+  },
+  maceIconWrap: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  driverBlueDotAura: {
+    position: 'absolute',
+    left: SCREEN_WIDTH * 0.48,
+    zIndex: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  driverBlueDotRing: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(37, 99, 235, 0.25)',
+  },
+  driverBlueDotCenter: {
+    position: 'absolute',
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#2563EB',
+    borderWidth: 2.5,
+    borderColor: Colors.white,
+  },
+  driverCarMarker: {
+    position: 'absolute',
+    left: SCREEN_WIDTH * 0.52,
+    zIndex: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ rotate: '-28deg' }],
+  },
+  floatingControlsColumn: {
+    position: 'absolute',
+    right: 14,
+    zIndex: 9,
+    gap: 8,
+  },
+  floatingMapBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Shadows.md,
   },
 });
 

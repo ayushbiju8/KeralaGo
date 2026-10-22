@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet, ViewStyle } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, ViewStyle, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { IconLibrary } from '../atoms/Icon';
 import Typography from '../atoms/Typography';
-import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
+import { Colors, Shadows } from '../../constants/theme';
 
 export interface TabItem {
   /** Unique tab identifier */
@@ -25,6 +25,8 @@ export interface BottomTabBarProps {
   activeTabId: string;
   /** Tab press handler */
   onTabPress: (id: string) => void;
+  /** Show pill highlight behind active icon */
+  showActivePill?: boolean;
   /** Override container style */
   style?: ViewStyle;
 }
@@ -33,16 +35,18 @@ const BottomTabBar: React.FC<BottomTabBarProps> = ({
   tabs,
   activeTabId,
   onTabPress,
+  showActivePill = true,
   style,
 }) => {
   const insets = useSafeAreaInsets();
+  const bottomPadding = insets.bottom > 0 ? insets.bottom : 8;
 
   return (
     <View
       style={[
         styles.container,
         Shadows.md as ViewStyle,
-        { paddingBottom: Math.max(insets.bottom - 4, 6) },
+        { paddingBottom: bottomPadding },
         style,
       ]}
     >
@@ -60,15 +64,22 @@ const BottomTabBar: React.FC<BottomTabBarProps> = ({
               onPress={() => onTabPress(tab.id)}
               activeOpacity={0.7}
             >
-              <View style={[styles.iconWrap, isActive && styles.iconWrapActive]}>
+              {/* Icon Container with active rounded pill */}
+              <View
+                style={[
+                  styles.iconWrap,
+                  isActive && showActivePill && styles.iconWrapActive,
+                ]}
+              >
                 <Icon
                   library={tab.iconLibrary ?? 'Ionicons'}
                   name={iconName}
-                  size={22}
+                  size={21}
                   color={isActive ? '#0F4A2B' : '#64748B'}
                 />
               </View>
 
+              {/* Tab Label */}
               <Typography
                 variant="caption"
                 weight={isActive ? 'bold' : 'medium'}
@@ -78,14 +89,22 @@ const BottomTabBar: React.FC<BottomTabBarProps> = ({
                 {tab.label}
               </Typography>
 
-              {isActive && <View style={styles.activeIndicator} />}
+              {/* Persistent slot for active indicator to guarantee zero vertical baseline shifting */}
+              <View
+                style={[
+                  styles.activeIndicator,
+                  { backgroundColor: isActive ? '#0F4A2B' : 'transparent' },
+                ]}
+              />
             </TouchableOpacity>
           );
         })}
       </View>
 
-      {/* iOS Home Indicator Bar */}
-      <View style={styles.homeIndicator} />
+      {/* Simulated Home Indicator Bar only on web when there are no native system insets */}
+      {Platform.OS === 'web' && insets.bottom === 0 && (
+        <View style={styles.homeIndicator} />
+      )}
     </View>
   );
 };
@@ -95,22 +114,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
-    paddingTop: 8,
+    paddingTop: 6,
+    zIndex: 25,
   },
   tabsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
+    height: 56,
   },
   tab: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    height: '100%',
+    paddingTop: 2,
   },
   iconWrap: {
-    width: 62,
-    height: 30,
-    borderRadius: 15,
+    width: 54,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -119,23 +142,23 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     marginTop: 3,
-    fontSize: 11.5,
+    fontSize: 11,
+    lineHeight: 14,
   },
   activeIndicator: {
-    width: 14,
+    width: 16,
     height: 2.5,
     borderRadius: 1.5,
-    backgroundColor: '#0F4A2B',
-    marginTop: 3,
+    marginTop: 2,
   },
   homeIndicator: {
-    width: 128,
-    height: 4.5,
-    borderRadius: 2.5,
-    backgroundColor: '#1E293B',
+    width: 120,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#94A3B8',
     alignSelf: 'center',
-    marginTop: 8,
-    opacity: 0.8,
+    marginTop: 6,
+    opacity: 0.6,
   },
 });
 
