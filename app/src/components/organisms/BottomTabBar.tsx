@@ -1,24 +1,9 @@
-/**
- * Organism: BottomTabBar
- *
- * App-wide bottom navigation bar matching all 3 KeralaGo mockups.
- *
- * Customer tabs: Home | Bookings | Profile
- * Driver tabs:   Home | Earnings | Bookings | Profile
- * Admin tabs:    Home | Analytics | Management | Profile
- *
- * Active tab: pill background + green icon + green label + green underline
- * Inactive: grey icon + grey label
- *
- * Reference: All 3 app showcases — bottom navigation
- */
-
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet, ViewStyle } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, ViewStyle, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { IconLibrary } from '../atoms/Icon';
 import Typography from '../atoms/Typography';
-import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
+import { Colors, Shadows } from '../../constants/theme';
 
 export interface TabItem {
   /** Unique tab identifier */
@@ -50,91 +35,130 @@ const BottomTabBar: React.FC<BottomTabBarProps> = ({
   tabs,
   activeTabId,
   onTabPress,
-  showActivePill = false,
+  showActivePill = true,
   style,
 }) => {
   const insets = useSafeAreaInsets();
+  const bottomPadding = insets.bottom > 0 ? insets.bottom : 8;
 
   return (
     <View
       style={[
         styles.container,
         Shadows.md as ViewStyle,
-        { paddingBottom: Math.max(insets.bottom, Spacing.xs) },
+        { paddingBottom: bottomPadding },
         style,
       ]}
     >
-      {tabs.map((tab) => {
-        const isActive = tab.id === activeTabId;
-        const iconName = isActive
-          ? tab.iconName
-          : (tab.iconNameInactive ?? tab.iconName);
+      <View style={styles.tabsRow}>
+        {tabs.map((tab) => {
+          const isActive = tab.id === activeTabId;
+          const iconName = isActive
+            ? tab.iconName
+            : (tab.iconNameInactive ?? tab.iconName);
 
-        return (
-          <TouchableOpacity
-            key={tab.id}
-            style={styles.tab}
-            onPress={() => onTabPress(tab.id)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.iconWrap, isActive && showActivePill && styles.iconWrapActive]}>
-              <Icon
-                library={tab.iconLibrary ?? 'Ionicons'}
-                name={iconName}
-                size="md"
-                color={isActive ? Colors.primary : Colors.textMuted}
-              />
-            </View>
-
-            <Typography
-              variant="xs"
-              weight={isActive ? 'bold' : 'regular'}
-              color={isActive ? Colors.primary : Colors.textMuted}
+          return (
+            <TouchableOpacity
+              key={tab.id}
+              style={styles.tab}
+              onPress={() => onTabPress(tab.id)}
+              activeOpacity={0.7}
             >
-              {tab.label}
-            </Typography>
+              {/* Icon Container with active rounded pill */}
+              <View
+                style={[
+                  styles.iconWrap,
+                  isActive && showActivePill && styles.iconWrapActive,
+                ]}
+              >
+                <Icon
+                  library={tab.iconLibrary ?? 'Ionicons'}
+                  name={iconName}
+                  size={21}
+                  color={isActive ? '#0F4A2B' : '#64748B'}
+                />
+              </View>
 
-            {isActive && <View style={styles.activeIndicator} />}
-          </TouchableOpacity>
-        );
-      })}
+              {/* Tab Label */}
+              <Typography
+                variant="caption"
+                weight={isActive ? 'bold' : 'medium'}
+                color={isActive ? '#0F4A2B' : '#64748B'}
+                style={styles.tabLabel}
+              >
+                {tab.label}
+              </Typography>
+
+              {/* Persistent slot for active indicator to guarantee zero vertical baseline shifting */}
+              <View
+                style={[
+                  styles.activeIndicator,
+                  { backgroundColor: isActive ? '#0F4A2B' : 'transparent' },
+                ]}
+              />
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* Simulated Home Indicator Bar only on web when there are no native system insets */}
+      {Platform.OS === 'web' && insets.bottom === 0 && (
+        <View style={styles.homeIndicator} />
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    backgroundColor: Colors.white,
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
-    paddingTop: Spacing.xs,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 6,
+    zIndex: 25,
+  },
+  tabsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    height: 56,
   },
   tab: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-    paddingTop: Spacing.xs,
-    paddingBottom: Spacing.xs,
-    position: 'relative',
+    justifyContent: 'flex-start',
+    height: '100%',
+    paddingTop: 2,
   },
   iconWrap: {
-    padding: Spacing.xs,
-    borderRadius: Radii.full,
+    width: 54,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   iconWrapActive: {
-    backgroundColor: Colors.mintLight,
+    backgroundColor: '#DFF2E7',
+  },
+  tabLabel: {
+    marginTop: 3,
+    fontSize: 11,
+    lineHeight: 14,
   },
   activeIndicator: {
-    position: 'absolute',
-    bottom: -2,
-    left: '50%',
-    marginLeft: -16,
-    width: 32,
-    height: 3,
+    width: 16,
+    height: 2.5,
+    borderRadius: 1.5,
+    marginTop: 2,
+  },
+  homeIndicator: {
+    width: 120,
+    height: 4,
     borderRadius: 2,
-    backgroundColor: Colors.primary,
+    backgroundColor: '#94A3B8',
+    alignSelf: 'center',
+    marginTop: 6,
+    opacity: 0.6,
   },
 });
 

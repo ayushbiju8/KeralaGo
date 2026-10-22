@@ -10,7 +10,14 @@
  */
 
 import React from 'react';
-import { TouchableOpacity, View, StyleSheet, ViewStyle } from 'react-native';
+import {
+  TouchableOpacity,
+  View,
+  StyleSheet,
+  ViewStyle,
+  Image,
+  ImageSourcePropType,
+} from 'react-native';
 import Icon, { IconLibrary } from '../atoms/Icon';
 import Typography from '../atoms/Typography';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
@@ -19,7 +26,7 @@ export interface ServiceCategoryCardProps {
   /** Service label */
   label: string;
   /** Ionicons icon name */
-  iconName: string;
+  iconName?: string;
   /** Icon library */
   iconLibrary?: IconLibrary;
   /** Icon color */
@@ -28,6 +35,10 @@ export interface ServiceCategoryCardProps {
   iconBg?: string;
   /** Optional badge content (e.g. pink shield for Pink Ride) */
   badge?: React.ReactNode;
+  /** Optional image asset (e.g. 3D vehicle render) */
+  imageSource?: ImageSourcePropType;
+  /** Optional custom graphic element */
+  customGraphic?: React.ReactNode;
   /** Press handler */
   onPress?: () => void;
   /** Override style */
@@ -36,28 +47,45 @@ export interface ServiceCategoryCardProps {
 
 const ServiceCategoryCard: React.FC<ServiceCategoryCardProps> = ({
   label,
-  iconName,
+  iconName = 'car',
   iconLibrary = 'Ionicons',
   iconColor = Colors.primary,
-  iconBg = Colors.mint,
+  iconBg = '#EDF8F1',
   badge,
+  imageSource,
+  customGraphic,
   onPress,
   style,
 }) => {
   return (
     <TouchableOpacity
-      style={[styles.card, style]}
+      style={[styles.card, { backgroundColor: iconBg }, style]}
       onPress={onPress}
       activeOpacity={0.75}
     >
-      {/* Icon Container */}
-      <View style={[styles.iconWrap, { backgroundColor: iconBg }]}>
-        <Icon library={iconLibrary} name={iconName} size="xl" color={iconColor} />
-        {badge && <View style={styles.badgeWrap}>{badge}</View>}
+      {/* Top Graphic / Illustration */}
+      <View style={styles.graphicWrap}>
+        {imageSource ? (
+          <Image source={imageSource} style={styles.imageAsset} resizeMode="contain" />
+        ) : customGraphic ? (
+          customGraphic
+        ) : (
+          <Icon library={iconLibrary} name={iconName} size={28} color={iconColor} />
+        )}
       </View>
 
+      {/* Optional Badge (e.g. pink shield on top right) */}
+      {badge && <View style={styles.badgeWrap}>{badge}</View>}
+
       {/* Label */}
-      <Typography variant="label" weight="medium" color={Colors.textPrimary} align="center">
+      <Typography
+        variant="caption"
+        weight="semiBold"
+        color={Colors.textPrimary}
+        align="center"
+        numberOfLines={1}
+        style={styles.label}
+      >
         {label}
       </Typography>
     </TouchableOpacity>
@@ -66,23 +94,33 @@ const ServiceCategoryCard: React.FC<ServiceCategoryCardProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.sm,
-  },
-  iconWrap: {
-    width: 72,
-    height: 72,
+    width: '23%',
+    height: 84,
     borderRadius: Radii.lg,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: 2,
     position: 'relative',
-    ...Shadows.xs,
+  },
+  graphicWrap: {
+    width: 60,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imageAsset: {
+    width: 56,
+    height: 42,
   },
   badgeWrap: {
     position: 'absolute',
     top: 4,
     right: 4,
+    zIndex: 2,
+  },
+  label: {
+    marginTop: 2,
   },
 });
 

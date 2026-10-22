@@ -38,6 +38,7 @@ export { default as ProgressBar } from './ProgressBar';
 export type { ProgressBarProps } from './ProgressBar';
 
 export { default as KeralaMapBackground } from './KeralaMapBackground';
+export { default as SheetDecorativeWave } from './SheetDecorativeWave';
 
 export { default as DriverHeroCarBanner } from './DriverHeroCarBanner';
 export type { DriverHeroCarBannerProps } from './DriverHeroCarBanner';

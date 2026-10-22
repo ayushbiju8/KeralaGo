@@ -1,10 +1,13 @@
 /**
  * Molecule: FloatingSearchBar
  *
- * The prominent search pill at the top of the Customer home screen.
- * Composed of: Icon (search) + Typography (placeholder) + pill button ("Now ▼")
+ * Svelte, stylish floating search capsule at the top of the Customer home screen.
+ * Composed of:
+ * - Emerald Search icon in subtle accent container
+ * - Refined placeholder typography ("Where do you want to go?")
+ * - Subtle forward arrow indicator on right
  *
- * Reference: Customer Home Map Interface (top search bar)
+ * Reference: Traditional Ride-Hailing Search Bar (Uber / Rapido / Green Interface)
  */
 
 import React from 'react';
@@ -13,19 +16,19 @@ import {
   View,
   StyleSheet,
   ViewStyle,
+  Text,
 } from 'react-native';
 import Icon from '../atoms/Icon';
-import Typography from '../atoms/Typography';
-import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
+import { Shadows } from '../../constants/theme';
 
 export interface FloatingSearchBarProps {
   /** Placeholder text */
   placeholder?: string;
-  /** Schedule/time selector label */
+  /** Schedule/time selector label (optional) */
   timeLabel?: string;
   /** Called when the bar is tapped */
   onPress?: () => void;
-  /** Called when the time selector is tapped */
+  /** Called when the time selector is tapped (optional) */
   onTimeSelectorPress?: () => void;
   /** Override container style */
   style?: ViewStyle;
@@ -33,47 +36,29 @@ export interface FloatingSearchBarProps {
 
 const FloatingSearchBar: React.FC<FloatingSearchBarProps> = ({
   placeholder = 'Where do you want to go?',
-  timeLabel = 'Now',
   onPress,
-  onTimeSelectorPress,
   style,
 }) => {
   return (
     <TouchableOpacity
       style={[styles.container, style]}
       onPress={onPress}
-      activeOpacity={0.85}
+      activeOpacity={0.88}
     >
-      {/* Search icon */}
-      <Icon library="Ionicons" name="search" size="md" color={Colors.primary} />
+      {/* Search Icon Wrap */}
+      <View style={styles.searchIconWrap}>
+        <Icon library="Ionicons" name="search" size={19} color="#0F4A2B" />
+      </View>
 
-      {/* Placeholder text */}
-      <Typography
-        variant="body1"
-        color={Colors.textMuted}
-        style={styles.placeholder}
-        numberOfLines={1}
-      >
+      {/* Placeholder Text */}
+      <Text style={styles.placeholderText} numberOfLines={1}>
         {placeholder}
-      </Typography>
+      </Text>
 
-      {/* Time selector pill */}
-      <TouchableOpacity
-        style={styles.timePill}
-        onPress={onTimeSelectorPress}
-        activeOpacity={0.8}
-      >
-        <Icon library="Ionicons" name="time" size="sm" color={Colors.white} />
-        <Typography
-          variant="label"
-          weight="semiBold"
-          color={Colors.white}
-          style={{ marginLeft: Spacing.xs }}
-        >
-          {timeLabel}
-        </Typography>
-        <Icon library="Ionicons" name="chevron-down" size="sm" color={Colors.white} />
-      </TouchableOpacity>
+      {/* Subtle Right Indicator */}
+      <View style={styles.rightArrowWrap}>
+        <Icon library="Ionicons" name="arrow-forward" size={16} color="#64748B" />
+      </View>
     </TouchableOpacity>
   );
 };
@@ -82,23 +67,43 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
-    borderRadius: Radii.full,
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.md,
-    ...Shadows.md,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    height: 48,
+    paddingLeft: 10,
+    paddingRight: 14,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(15, 74, 43, 0.08)',
+    shadowColor: '#0F4A2B',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.10,
+    shadowRadius: 10,
+    elevation: 4,
   },
-  placeholder: {
-    flex: 1,
-    marginHorizontal: Spacing.sm,
-  },
-  timePill: {
-    flexDirection: 'row',
+  searchIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F0FDF4',
     alignItems: 'center',
-    backgroundColor: Colors.primary,
-    borderRadius: Radii.full,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs + 2,
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  placeholderText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#334155',
+    letterSpacing: 0.1,
+  },
+  rightArrowWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

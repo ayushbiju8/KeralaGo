@@ -1,14 +1,114 @@
-import React from 'react';
-import { View, StyleSheet, Dimensions, TouchableOpacity, ViewStyle } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import {
+  View,
+  StyleSheet,
+  Dimensions,
+  Text,
+  Platform,
+  TouchableOpacity,
+  ViewStyle,
+} from 'react-native';
 import Icon from '../atoms/Icon';
 import Typography from '../atoms/Typography';
-import { Colors, Radii, Shadows, Spacing } from '../../constants/theme';
+import { Colors, Shadows, Radii } from '../../constants/theme';
 
-const { width, height } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+const GOOGLE_MAPS_API_KEY =
+  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
+  'AIzaSyDu10Bl1_cUfbKLQ4asg-drGffOOW79FrE';
+
+export interface LocationPoint {
+  title: string;
+  lat: number;
+  lng: number;
+  top: number;
+  left: number;
+  subtitle?: string;
+}
+
+export const KNOWN_LOCATIONS: Record<string, LocationPoint> = {
+  'Mar Athanasius College of Engineering': {
+    title: 'Mar Athanasius College of Engineering',
+    lat: 10.0538,
+    lng: 76.6192,
+    top: SCREEN_HEIGHT * 0.225,
+    left: SCREEN_WIDTH * 0.38,
+    subtitle: 'College Junction, Kothamangalam',
+  },
+  'M B Hostel': {
+    title: 'M B Hostel',
+    lat: 10.0570,
+    lng: 76.6230,
+    top: SCREEN_HEIGHT * 0.32,
+    left: SCREEN_WIDTH * 0.60,
+    subtitle: 'Near MACE, Kothamangalam',
+  },
+  'kattuchira': {
+    title: 'kattuchira',
+    lat: 10.0490,
+    lng: 76.6260,
+    top: SCREEN_HEIGHT * 0.40,
+    left: SCREEN_WIDTH * 0.70,
+    subtitle: 'College Road, Kothamangalam',
+  },
+  'Kozhippilly Junction': {
+    title: 'Kozhippilly Junction',
+    lat: 10.0610,
+    lng: 76.6120,
+    top: SCREEN_HEIGHT * 0.12,
+    left: SCREEN_WIDTH * 0.25,
+    subtitle: 'Aluva - Munnar Highway, Kothamangalam',
+  },
+  'St. George Basilica': {
+    title: 'St. George Basilica',
+    lat: 10.0630,
+    lng: 76.6280,
+    top: SCREEN_HEIGHT * 0.18,
+    left: SCREEN_WIDTH * 0.75,
+    subtitle: 'High School Rd, Kothamangalam',
+  },
+  'KSRTC Bus Stand': {
+    title: 'KSRTC Bus Stand',
+    lat: 10.0585,
+    lng: 76.6210,
+    top: SCREEN_HEIGHT * 0.15,
+    left: SCREEN_WIDTH * 0.48,
+    subtitle: 'Main KSRTC Terminal, Kothamangalam',
+  },
+  'Aluva Metro Station': {
+    title: 'Aluva Metro Station',
+    lat: 10.1098,
+    lng: 76.3533,
+    top: SCREEN_HEIGHT * 0.10,
+    left: SCREEN_WIDTH * 0.18,
+    subtitle: 'Kochi Metro Feeder Terminal, Aluva',
+  },
+};
+
+export const getLocationPoint = (name?: string | null): LocationPoint => {
+  if (!name) return KNOWN_LOCATIONS['Mar Athanasius College of Engineering'];
+  if (KNOWN_LOCATIONS[name]) return KNOWN_LOCATIONS[name];
+  const lower = name.toLowerCase();
+  for (const key of Object.keys(KNOWN_LOCATIONS)) {
+    if (key.toLowerCase().includes(lower) || lower.includes(key.toLowerCase())) {
+      return KNOWN_LOCATIONS[key];
+    }
+  }
+  return {
+    title: name,
+    lat: 10.0560,
+    lng: 76.6220,
+    top: SCREEN_HEIGHT * 0.32,
+    left: SCREEN_WIDTH * 0.60,
+    subtitle: 'Kothamangalam',
+  };
+};
 
 export interface KeralaMapBackgroundProps {
   showVehicles?: boolean;
   activeDestination?: string | null;
+  pickupLocation?: string;
   variant?: 'customer' | 'driver';
   height?: number;
   offsetY?: number;
@@ -18,9 +118,80 @@ export interface KeralaMapBackgroundProps {
   onNavigatePress?: () => void;
 }
 
+/**
+ * Reusable Mini Vehicle Component for the Map Overlay
+ */
+const MapVehicle: React.FC<{
+  type: 'car' | 'auto' | 'bike';
+  rotation?: string;
+  style?: any;
+}> = ({ type, rotation = '0deg', style }) => {
+  if (type === 'car') {
+    return (
+      <View style={[styles.vehicleContainer, { transform: [{ rotate: rotation }] }, style]}>
+        <View style={styles.carBody}>
+          <View style={styles.carWindshieldFront} />
+          <View style={styles.carRoof} />
+          <View style={styles.carWindshieldRear} />
+        </View>
+      </View>
+    );
+  }
+
+  if (type === 'auto') {
+    return (
+      <View style={[styles.vehicleContainer, { transform: [{ rotate: rotation }] }, style]}>
+        <View style={styles.autoBody}>
+          <View style={styles.autoYellowRoof}>
+            <View style={styles.autoWindshield} />
+          </View>
+          <View style={styles.autoGreenBase} />
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.vehicleContainer, { transform: [{ rotate: rotation }] }, style]}>
+      <View style={styles.bikeBody}>
+        <View style={styles.bikeWheelFront} />
+        <View style={styles.bikeTank} />
+        <View style={styles.bikeWheelRear} />
+      </View>
+    </View>
+  );
+};
+
+// Lush Green KeralaGO Custom Google Maps Styling matching reference UI
+const KERALA_MAP_STYLE = [
+  { featureType: 'all', elementType: 'geometry', stylers: [{ color: '#F0F5F1' }] },
+  { featureType: 'landscape.natural', elementType: 'geometry', stylers: [{ color: '#D7EEDF' }] },
+  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#CEEAD6' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#93C5FD' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#2563EB' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#FFFFFF' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#E2E8F0' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#F8FAFC' }] },
+  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#CBD5E1' }] },
+  { featureType: 'poi', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
+  { featureType: 'transit', elementType: 'all', stylers: [{ visibility: 'off' }] },
+];
+
+/**
+ * Molecule: KeralaMapBackground
+ *
+ * Real Live Google Map of Kothamangalam / Mar Athanasius College of Engineering:
+ * - Direct Google Maps JavaScript SDK instance on Web for both Customer & Driver pages
+ * - Interactive zooming, panning, and real-time street map rendering
+ * - Prominent "Pickup Point >" callout with pin in customer mode
+ * - Driver location beacon, Highway 85 / MACE landmarks & floating map controls in driver mode
+ * - Stationed live vehicles (sedans, auto-rickshaws, bikes) on real streets
+ * - Dynamic route polyline when selecting destinations
+ */
 const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
   showVehicles = true,
   activeDestination,
+  pickupLocation,
   variant = 'customer',
   height: customHeight,
   offsetY = 0,
@@ -29,238 +200,365 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
   onLayersPress,
   onNavigatePress,
 }) => {
-  if (variant === 'driver') {
-    const mapH = customHeight ?? 270;
-    const offY = offsetY ?? 0;
-    return (
-      <View style={[styles.driverContainer, { height: mapH }, style]}>
-        {/* Terrain Base */}
-        <View style={styles.driverTerrain} />
+  const mapDivRef = useRef<any>(null);
+  const googleMapInstance = useRef<any>(null);
+  const pickupMarkerRef = useRef<any>(null);
+  const destMarkerRef = useRef<any>(null);
+  const directionsServiceRef = useRef<any>(null);
+  const directionsRendererRef = useRef<any>(null);
 
-        {/* River on the left */}
-        <View style={styles.driverRiver} />
-        <View style={[styles.driverRiverCurve, { top: 60 + offY }]} />
+  const isDriver = variant === 'driver';
+  const pickupPoint = getLocationPoint(pickupLocation || (isDriver ? 'Mar Athanasius College of Engineering' : undefined));
+  const destPoint = activeDestination ? getLocationPoint(activeDestination) : null;
 
-        {/* Secondary roads */}
-        <View style={[styles.driverRoadMinor1, { top: 70 + offY }]} />
-        <View style={styles.driverRoadMinor2} />
-        <View style={styles.driverRoadMinor3} />
+  // Sync Google Maps markers & route on activeDestination / pickupLocation change
+  const syncGoogleMapRoute = () => {
+    const google = (globalThis as any).google;
+    if (!google?.maps || !googleMapInstance.current) return;
 
-        {/* Extra road in lower area for full map view */}
-        {mapH > 400 && (
-          <View style={[styles.driverRoadMinorLower, { top: 340 + offY }]} />
-        )}
+    if (directionsRendererRef.current) {
+      directionsRendererRef.current.setMap(null);
+      directionsRendererRef.current = null;
+    }
+    if (pickupMarkerRef.current) {
+      pickupMarkerRef.current.setMap(null);
+      pickupMarkerRef.current = null;
+    }
+    if (destMarkerRef.current) {
+      destMarkerRef.current.setMap(null);
+      destMarkerRef.current = null;
+    }
 
-        {/* Yellow NH-85 Highway */}
-        <View style={styles.driverHighway85} />
+    const pLatLng = new google.maps.LatLng(pickupPoint.lat, pickupPoint.lng);
 
-        {/* Highway 85 Badge Shield */}
-        <View style={[styles.highwayShield, { top: 130 + offY }]}>
-          <Typography variant="xs" weight="bold" color="#1E293B">
-            85
-          </Typography>
-        </View>
+    // Marker (Pin Icon)
+    pickupMarkerRef.current = new google.maps.Marker({
+      position: pLatLng,
+      map: googleMapInstance.current,
+      title: isDriver ? 'Driver Location: Near MACE' : `Pickup: ${pickupPoint.title}`,
+      icon: {
+        path: 'M 0,0 C -2,-18 -9,-20 -9,-27 A 9,9 0 1,1 9,-27 C 9,-20 2,-18 0,0 Z',
+        scale: 1.1,
+        fillColor: '#0F4A2B',
+        fillOpacity: 1,
+        strokeColor: '#FFFFFF',
+        strokeWeight: 2,
+        anchor: new google.maps.Point(0, 0),
+      },
+    });
 
-        {/* MACE College Landmark Pin */}
-        <View style={[styles.maceLandmark, { top: 48 + offY }]}>
-          <View style={styles.maceIconWrap}>
-            <Icon library="MaterialIcons" name="school" size={12} color="#64748B" />
-          </View>
-          <View>
-            <Typography variant="xs" weight="bold" color="#334155" style={{ fontSize: 9 }}>
-              MACE
-            </Typography>
-            <Typography variant="xs" color="#64748B" style={{ fontSize: 8 }}>
-              Mar Athanasius
-            </Typography>
-            <Typography variant="xs" color="#64748B" style={{ fontSize: 8 }}>
-              College of Engineering
-            </Typography>
-          </View>
-        </View>
+    if (destPoint) {
+      const dLatLng = new google.maps.LatLng(destPoint.lat, destPoint.lng);
 
-        {/* Location Pin Badge: "Near MACE / Kothamangalam" */}
-        <View style={[styles.locationPinCard, { top: 38 + offY }]}>
-          <View style={styles.locationPinCircle}>
-            <Icon library="Ionicons" name="location-sharp" size={16} color={Colors.white} />
-          </View>
-          <View style={{ marginLeft: 6 }}>
-            <Typography variant="caption" weight="bold" color={Colors.textPrimary}>
-              Near MACE
-            </Typography>
-            <Typography variant="xs" color={Colors.textSecondary} style={{ fontSize: 10 }}>
-              Kothamangalam
-            </Typography>
-          </View>
-        </View>
+      // Destination Marker
+      destMarkerRef.current = new google.maps.Marker({
+        position: dLatLng,
+        map: googleMapInstance.current,
+        title: `Dropoff: ${destPoint.title}`,
+        icon: {
+          path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
+          scale: 6,
+          fillColor: '#DC2626',
+          fillOpacity: 1,
+          strokeColor: '#FFFFFF',
+          strokeWeight: 2,
+        },
+      });
 
-        {/* Blue Current Location Radar Pulse & Center Dot */}
-        <View style={[styles.driverBlueDotAura, { top: 112 + offY }]}>
-          <View style={styles.driverBlueDotRing} />
-          <View style={styles.driverBlueDotCenter} />
-        </View>
+      // Real driving road route via DirectionsService
+      try {
+        if (google.maps.DirectionsService && google.maps.DirectionsRenderer) {
+          if (!directionsServiceRef.current) {
+            directionsServiceRef.current = new google.maps.DirectionsService();
+          }
 
-        {/* Driver Car on Road */}
-        <View style={[styles.driverCarMarker, { top: 138 + offY }]}>
-          <View style={styles.carBodyShadow} />
-          <View style={styles.carBody}>
-            {/* Windshield & Roof */}
-            <View style={styles.carRoof} />
-            <View style={styles.carWindshield} />
-            <View style={styles.carRearWindow} />
-          </View>
-        </View>
+          const renderer = new google.maps.DirectionsRenderer({
+            map: googleMapInstance.current,
+            suppressMarkers: true,
+            preserveViewport: true,
+            polylineOptions: {
+              strokeColor: '#0F4A2B',
+              strokeOpacity: 0.9,
+              strokeWeight: 5,
+            },
+          });
+          directionsRendererRef.current = renderer;
 
-        {/* Floating Map Controls on Right */}
-        <View style={[styles.floatingControlsColumn, { top: 36 + offY }]}>
-          <TouchableOpacity
-            style={styles.floatingMapBtn}
-            activeOpacity={0.8}
-            onPress={onLocatePress}
-          >
-            <Icon library="Ionicons" name="locate" size={20} color={Colors.primary} />
-          </TouchableOpacity>
+          directionsServiceRef.current.route(
+            {
+              origin: pLatLng,
+              destination: dLatLng,
+              travelMode: google.maps.TravelMode.DRIVING,
+            },
+            (result: any, status: any) => {
+              if (status === google.maps.DirectionsStatus.OK) {
+                renderer.setDirections(result);
+              }
+            }
+          );
+        }
+      } catch (err) {
+        // Fallback gracefully
+      }
 
-          <TouchableOpacity
-            style={styles.floatingMapBtn}
-            activeOpacity={0.8}
-            onPress={onLayersPress}
-          >
-            <Icon library="Ionicons" name="layers-outline" size={20} color={Colors.primary} />
-          </TouchableOpacity>
+      const bounds = new google.maps.LatLngBounds();
+      bounds.extend(pLatLng);
+      bounds.extend(dLatLng);
+      googleMapInstance.current.fitBounds(bounds, {
+        top: 90,
+        bottom: Math.round(SCREEN_HEIGHT * 0.54),
+        left: 50,
+        right: 50,
+      });
+    } else {
+      googleMapInstance.current.setCenter(pLatLng);
+      googleMapInstance.current.setZoom(16);
+    }
+  };
 
-          <TouchableOpacity
-            style={styles.floatingMapBtn}
-            activeOpacity={0.8}
-            onPress={onNavigatePress}
-          >
-            <Icon library="Ionicons" name="navigate" size={20} color={Colors.primary} />
-          </TouchableOpacity>
-        </View>
+  // Initialize Live Google Map on Web
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
 
-        {/* Extra Landmark in Lower Area when Drawer is Pulled Down */}
-        {mapH > 400 && (
-          <View style={[styles.kothamangalamLandmark, { top: 310 + offY }]}>
-            <View style={styles.landmarkDotTown} />
-            <View>
-              <Typography variant="xs" weight="bold" color="#334155" style={{ fontSize: 9 }}>
-                Kothamangalam Town
-              </Typography>
-              <Typography variant="xs" color="#64748B" style={{ fontSize: 8 }}>
-                Municipal Junction
-              </Typography>
-            </View>
-          </View>
-        )}
-      </View>
-    );
-  }
+    let isMounted = true;
+
+    const initMap = () => {
+      const google = (globalThis as any).google;
+      if (!isMounted || !google?.maps || !mapDivRef.current) return;
+
+      try {
+        if (!googleMapInstance.current) {
+          googleMapInstance.current = new google.maps.Map(mapDivRef.current, {
+            center: { lat: pickupPoint.lat, lng: pickupPoint.lng },
+            zoom: 16,
+            disableDefaultUI: true,
+            zoomControl: false,
+            mapTypeControl: false,
+            scaleControl: false,
+            streetViewControl: false,
+            rotateControl: false,
+            fullscreenControl: false,
+            gestureHandling: 'greedy',
+            styles: KERALA_MAP_STYLE,
+          });
+
+          syncGoogleMapRoute();
+        }
+      } catch (e) {
+        console.warn('Google Maps initialization note:', e);
+      }
+    };
+
+    const google = (globalThis as any).google;
+    if (google?.maps) {
+      initMap();
+    } else {
+      const scriptId = 'google-maps-sdk-script';
+      let script = document.getElementById(scriptId) as HTMLScriptElement;
+
+      if (!script) {
+        script = document.createElement('script');
+        script.id = scriptId;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,geometry`;
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+      }
+
+      script.addEventListener('load', initMap);
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Update route on prop change
+  useEffect(() => {
+    syncGoogleMapRoute();
+  }, [activeDestination, pickupLocation]);
 
   return (
-    <View style={styles.container}>
-      {/* Background ground & terrain */}
-      <View style={styles.terrainBase} />
-
-      {/* Kerala Backwaters / Vembanad Lake waterway ribbon */}
-      <View style={styles.waterway} />
-      <View style={styles.waterwayBranch} />
-
-      {/* Simulated Road Grid */}
-      <View style={[styles.road, styles.nh66Highway]} />
-      <View style={[styles.road, styles.cochinSeaportRoad]} />
-      <View style={[styles.road, styles.mgRoad]} />
-      <View style={[styles.road, styles.ringRoad]} />
-      <View style={[styles.road, styles.crossRoad1]} />
-      <View style={[styles.road, styles.crossRoad2]} />
-      <View style={[styles.road, styles.crossRoad3]} />
-
-      {/* Kochi Metro Elevated Viaduct line */}
-      <View style={styles.metroLine} />
-
-      {/* Landmark badges on map */}
-      <View style={[styles.landmarkPin, { top: height * 0.22, left: width * 0.15 }]}>
-        <View style={styles.landmarkDot} />
-        <Typography variant="xs" weight="medium" color={Colors.textSecondary}>
-          Fort Kochi
-        </Typography>
+    <View
+      style={[
+        styles.container,
+        customHeight ? { height: customHeight } : null,
+        style,
+      ]}
+    >
+      {/* ── Base Styled Terrain Background (Ensures zero blank flash) ── */}
+      <View style={styles.baseTerrain}>
+        <View style={[styles.greenParcel, { top: SCREEN_HEIGHT * 0.04 + offsetY, left: -20, width: 150, height: 120, borderRadius: 32 }]} />
+        <View style={[styles.greenParcel, { top: SCREEN_HEIGHT * 0.12 + offsetY, left: SCREEN_WIDTH * 0.22, width: 130, height: 100, borderRadius: 28 }]} />
+        <View style={[styles.greenParcel, { top: SCREEN_HEIGHT * 0.22 + offsetY, left: SCREEN_WIDTH * 0.05, width: 140, height: 130, borderRadius: 32 }]} />
+        <View style={[styles.riverCurveMain, { top: -20 + offsetY }]} />
+        <View style={[styles.kozhippillyRoad, { top: SCREEN_HEIGHT * 0.10 + offsetY }]}>
+          <Text style={styles.roadLabelText}>Kozhippilly - College Junction Rd</Text>
+        </View>
+        <View style={[styles.riverBridge, { top: SCREEN_HEIGHT * 0.14 + offsetY }]} />
+        <View style={[styles.riverBankRoad, { top: -30 + offsetY }]} />
+        <View style={[styles.roadResidential1, { top: SCREEN_HEIGHT * 0.16 + offsetY }]} />
+        <View style={[styles.roadResidential2, { top: SCREEN_HEIGHT * 0.23 + offsetY }]} />
+        <View style={[styles.roadResidential3, { top: SCREEN_HEIGHT * 0.28 + offsetY }]} />
       </View>
 
-      <View style={[styles.landmarkPin, { top: height * 0.32, right: width * 0.12 }]}>
-        <View style={[styles.landmarkDot, { backgroundColor: Colors.primary }]} />
-        <Typography variant="xs" weight="medium" color={Colors.textSecondary}>
-          Kakkanad InfoPark
-        </Typography>
-      </View>
-
-      <View style={[styles.landmarkPin, { top: height * 0.15, right: width * 0.28 }]}>
-        <View style={styles.landmarkDot} />
-        <Typography variant="xs" weight="medium" color={Colors.textSecondary}>
-          Aluva Metro
-        </Typography>
-      </View>
-
-      {/* Active route preview if destination selected */}
-      {activeDestination && (
-        <View style={styles.routePolyline} />
+      {/* ── Real Live Google Map Container on Web ── */}
+      {Platform.OS === 'web' && (
+        <View
+          ref={mapDivRef}
+          style={styles.googleMapDiv}
+        />
       )}
 
-      {/* User's current location pin with pulse aura */}
-      <View style={[styles.userLocationContainer, { top: height * 0.38, left: width * 0.44 }]}>
-        <View style={styles.pulseAura} />
-        <View style={styles.userPinCenter}>
-          <Icon library="Ionicons" name="navigate" size={14} color={Colors.white} />
-        </View>
-        <View style={styles.userLabelBubble}>
-          <Typography variant="xs" weight="semiBold" color={Colors.primary}>
-            You are here • MG Road
-          </Typography>
-        </View>
+      {/* ── Overlaid Interactive Markers & Vehicle Layer ── */}
+      <View style={styles.overlayLayer} pointerEvents="box-none">
+        {/* Customer Mode: "Pickup Point >" Pin Callout */}
+        {!isDriver && (
+          <View style={[styles.pickupPointRoot, { top: pickupPoint.top, left: pickupPoint.left }]}>
+            <View style={styles.calloutPill}>
+              <Text style={styles.calloutText} numberOfLines={1}>
+                {pickupLocation && pickupLocation.length > 20
+                  ? pickupLocation.substring(0, 18) + '...'
+                  : (pickupLocation || 'Pickup Point')}
+              </Text>
+              <Icon library="Ionicons" name="chevron-forward" size={13} color={Colors.white} />
+            </View>
+            <View style={styles.calloutTriangle} />
+
+            {/* Pin Marker */}
+            <View style={styles.pinSymbolWrap}>
+              <Icon library="Ionicons" name="location-sharp" size={38} color="#0F4A2B" />
+              <View style={styles.pinWhiteCircle} />
+            </View>
+            <View style={styles.pinGroundShadow} />
+          </View>
+        )}
+
+        {/* Customer Mode: Destination Marker */}
+        {!isDriver && destPoint && (
+          <View
+            style={[
+              styles.destinationMarkerRoot,
+              {
+                top: destPoint.top,
+                left: destPoint.left,
+              },
+            ]}
+          >
+            <View style={styles.destCalloutPill}>
+              <Text style={styles.destCalloutText}>{destPoint.title}</Text>
+            </View>
+            <Icon library="Ionicons" name="location-sharp" size={32} color="#DC2626" />
+          </View>
+        )}
+
+        {/* Driver Mode: Location Beacon & Floating Controls */}
+        {isDriver && (
+          <>
+            {/* Location Pin Badge: "Near MACE / Kothamangalam" */}
+            <View style={[styles.driverLocationPinCard, { top: 48 + offsetY }]}>
+              <View style={styles.driverLocationPinCircle}>
+                <Icon library="Ionicons" name="location-sharp" size={15} color={Colors.white} />
+              </View>
+              <View style={{ marginLeft: 6 }}>
+                <Typography variant="caption" weight="bold" color={Colors.textPrimary}>
+                  Near MACE
+                </Typography>
+                <Typography variant="xs" color={Colors.textSecondary} style={{ fontSize: 10 }}>
+                  Kothamangalam
+                </Typography>
+              </View>
+            </View>
+
+            {/* MACE College Landmark Pin */}
+            <View style={[styles.maceLandmark, { top: 58 + offsetY }]}>
+              <View style={styles.maceIconWrap}>
+                <Icon library="MaterialIcons" name="school" size={12} color="#64748B" />
+              </View>
+              <View>
+                <Typography variant="xs" weight="bold" color="#334155" style={{ fontSize: 9 }}>
+                  MACE
+                </Typography>
+                <Typography variant="xs" color="#64748B" style={{ fontSize: 8 }}>
+                  College of Engineering
+                </Typography>
+              </View>
+            </View>
+
+            {/* Blue Location Dot with Radar Ring */}
+            <View style={[styles.driverBlueDotAura, { top: 120 + offsetY }]}>
+              <View style={styles.driverBlueDotRing} />
+              <View style={styles.driverBlueDotCenter} />
+            </View>
+
+            {/* Driver Sedan on Road */}
+            <View style={[styles.driverCarMarker, { top: 148 + offsetY }]}>
+              <View style={styles.carBodyShadow} />
+              <View style={styles.carBody}>
+                <View style={styles.carWindshieldFront} />
+                <View style={styles.carRoof} />
+                <View style={styles.carWindshieldRear} />
+              </View>
+            </View>
+
+            {/* Floating Controls Column on Right (Locate, Layers, Navigate) */}
+            <View style={[styles.floatingControlsColumn, { top: 42 + offsetY }]}>
+              {onLocatePress && (
+                <TouchableOpacity
+                  style={styles.floatingMapBtn}
+                  activeOpacity={0.8}
+                  onPress={onLocatePress}
+                >
+                  <Icon library="Ionicons" name="locate" size={20} color={Colors.primary} />
+                </TouchableOpacity>
+              )}
+
+              {onLayersPress && (
+                <TouchableOpacity
+                  style={styles.floatingMapBtn}
+                  activeOpacity={0.8}
+                  onPress={onLayersPress}
+                >
+                  <Icon library="Ionicons" name="layers-outline" size={20} color={Colors.primary} />
+                </TouchableOpacity>
+              )}
+
+              {onNavigatePress && (
+                <TouchableOpacity
+                  style={styles.floatingMapBtn}
+                  activeOpacity={0.8}
+                  onPress={onNavigatePress}
+                >
+                  <Icon library="Ionicons" name="navigate" size={20} color={Colors.primary} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </>
+        )}
+
+        {/* Live Moving Vehicles Stationed on Kothamangalam Roads */}
+        {showVehicles && (
+          <>
+            {/* White car on Kozhippilly road */}
+            <MapVehicle type="car" rotation="-26deg" style={{ top: SCREEN_HEIGHT * 0.14 + offsetY, left: SCREEN_WIDTH * 0.27 }} />
+
+            {/* White car crossing bridge over river */}
+            <MapVehicle type="car" rotation="32deg" style={{ top: SCREEN_HEIGHT * 0.14 + offsetY, right: SCREEN_WIDTH * 0.17 }} />
+
+            {/* Green sports bike on hostel road */}
+            <MapVehicle type="bike" rotation="-15deg" style={{ top: SCREEN_HEIGHT * 0.22 + offsetY, right: SCREEN_WIDTH * 0.08 }} />
+
+            {/* Auto rickshaw near college junction */}
+            <MapVehicle type="auto" rotation="-10deg" style={{ top: SCREEN_HEIGHT * 0.26 + offsetY, right: SCREEN_WIDTH * 0.14 }} />
+
+            {/* White car on residential road */}
+            <MapVehicle type="car" rotation="30deg" style={{ top: SCREEN_HEIGHT * 0.26 + offsetY, left: SCREEN_WIDTH * 0.18 }} />
+
+            {/* Auto rickshaw below pickup point */}
+            <MapVehicle type="auto" rotation="65deg" style={{ top: SCREEN_HEIGHT * 0.32 + offsetY, left: SCREEN_WIDTH * 0.32 }} />
+          </>
+        )}
       </View>
-
-      {/* Nearby live cabs/autos/bikes */}
-      {showVehicles && (
-        <>
-          {/* Kerala Auto Rickshaw nearby */}
-          <View style={[styles.vehicleMarker, { top: height * 0.34, left: width * 0.28 }]}>
-            <View style={[styles.vehicleBadge, { backgroundColor: '#F59E0B' }]}>
-              <Icon library="MaterialCommunityIcons" name="rickshaw" size={16} color={Colors.white} />
-            </View>
-            <View style={styles.vehicleEtaTag}>
-              <Typography variant="xs" weight="bold" color={Colors.textPrimary}>2m</Typography>
-            </View>
-          </View>
-
-          {/* KeralaGo Car nearby */}
-          <View style={[styles.vehicleMarker, { top: height * 0.44, right: width * 0.25 }]}>
-            <View style={[styles.vehicleBadge, { backgroundColor: Colors.primary }]}>
-              <Icon library="Ionicons" name="car" size={15} color={Colors.white} />
-            </View>
-            <View style={styles.vehicleEtaTag}>
-              <Typography variant="xs" weight="bold" color={Colors.textPrimary}>4m</Typography>
-            </View>
-          </View>
-
-          {/* Pink Ride Cab nearby */}
-          <View style={[styles.vehicleMarker, { top: height * 0.26, left: width * 0.55 }]}>
-            <View style={[styles.vehicleBadge, { backgroundColor: Colors.pinkRide }]}>
-              <Icon library="Ionicons" name="shield-checkmark" size={14} color={Colors.white} />
-            </View>
-            <View style={styles.vehicleEtaTag}>
-              <Typography variant="xs" weight="bold" color={Colors.pinkRide}>5m</Typography>
-            </View>
-          </View>
-
-          {/* Moto Bike nearby */}
-          <View style={[styles.vehicleMarker, { top: height * 0.48, left: width * 0.38 }]}>
-            <View style={[styles.vehicleBadge, { backgroundColor: '#3B82F6' }]}>
-              <Icon library="MaterialIcons" name="two-wheeler" size={16} color={Colors.white} />
-            </View>
-            <View style={styles.vehicleEtaTag}>
-              <Typography variant="xs" weight="bold" color={Colors.textPrimary}>1m</Typography>
-            </View>
-          </View>
-        </>
-      )}
     </View>
   );
 };
@@ -268,289 +566,328 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFill,
+    backgroundColor: '#EDF3EE',
     overflow: 'hidden',
-    backgroundColor: '#F3F6F4',
   },
-  terrainBase: {
+  baseTerrain: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: '#EAF1ED',
+    backgroundColor: '#EEF5EF',
+    zIndex: 1,
   },
-  waterway: {
+  googleMapDiv: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 2,
+  },
+  overlayLayer: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 3,
+  },
+  greenParcel: {
     position: 'absolute',
-    top: 0,
-    left: width * 0.08,
-    width: 32,
-    height: height,
-    backgroundColor: '#C5E0FB',
+    backgroundColor: '#D7ECD9',
     opacity: 0.85,
-    transform: [{ rotate: '15deg' }, { scaleX: 1.4 }],
   },
-  waterwayBranch: {
-    position: 'absolute',
-    top: height * 0.28,
-    left: width * 0.02,
-    width: 140,
-    height: 24,
-    backgroundColor: '#C5E0FB',
-    opacity: 0.8,
-    borderRadius: Radii.full,
-    transform: [{ rotate: '-25deg' }],
-  },
-  road: {
-    position: 'absolute',
-    backgroundColor: '#FFFFFF',
-    borderColor: '#DFE8E2',
-    borderWidth: 1,
-  },
-  nh66Highway: {
-    top: -50,
-    left: width * 0.48,
-    width: 24,
-    height: height + 100,
-    transform: [{ rotate: '-12deg' }],
-    backgroundColor: '#FFFDF0',
-    borderColor: '#F3E5AB',
-  },
-  cochinSeaportRoad: {
-    top: -50,
-    right: width * 0.18,
-    width: 18,
-    height: height + 100,
-    transform: [{ rotate: '8deg' }],
-  },
-  mgRoad: {
-    top: height * 0.36,
-    left: -50,
-    width: width + 100,
-    height: 18,
-    transform: [{ rotate: '4deg' }],
-  },
-  ringRoad: {
-    top: height * 0.2,
-    left: -50,
-    width: width + 100,
-    height: 14,
-    transform: [{ rotate: '-8deg' }],
-  },
-  crossRoad1: {
-    top: height * 0.52,
-    left: -30,
-    width: width + 60,
-    height: 12,
-  },
-  crossRoad2: {
-    top: height * 0.1,
-    left: width * 0.25,
-    width: 14,
-    height: 350,
-    transform: [{ rotate: '40deg' }],
-  },
-  crossRoad3: {
-    top: height * 0.32,
-    left: width * 0.3,
-    width: 12,
-    height: 300,
-    transform: [{ rotate: '-35deg' }],
-  },
-  metroLine: {
-    position: 'absolute',
-    top: -50,
-    left: width * 0.52,
-    width: 4,
-    height: height + 100,
-    backgroundColor: '#0F4A2B',
-    transform: [{ rotate: '-12deg' }],
-    opacity: 0.6,
-  },
-  landmarkPin: {
-    position: 'absolute',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: Radii.sm,
-    ...Shadows.xs,
-  },
-  landmarkDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.textMuted,
-  },
-  routePolyline: {
-    position: 'absolute',
-    top: height * 0.32,
-    left: width * 0.45,
-    width: 110,
-    height: 90,
-    borderLeftWidth: 4,
-    borderBottomWidth: 4,
-    borderColor: Colors.primaryVibrant,
-    borderStyle: 'dashed',
-  },
-  userLocationContainer: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pulseAura: {
-    position: 'absolute',
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(15, 74, 43, 0.18)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(15, 74, 43, 0.3)',
-  },
-  userPinCenter: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2.5,
-    borderColor: Colors.white,
-    ...Shadows.sm,
-  },
-  userLabelBubble: {
-    position: 'absolute',
-    top: 30,
-    backgroundColor: Colors.white,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: Radii.full,
-    borderWidth: 1,
-    borderColor: Colors.mintBorder,
-    ...Shadows.xs,
-  },
-  vehicleMarker: {
-    position: 'absolute',
-    alignItems: 'center',
-  },
-  vehicleBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: Colors.white,
-    ...Shadows.sm,
-  },
-  vehicleEtaTag: {
-    backgroundColor: Colors.white,
-    borderRadius: Radii.xs,
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    marginTop: 2,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-    ...Shadows.xs,
-  },
-
-  // ── Driver Variant Styles ──
-  driverContainer: {
-    width: '100%',
-    position: 'relative',
-    overflow: 'hidden',
-    backgroundColor: '#EDF6EF',
-  },
-  driverTerrain: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: '#EDF6EF',
-  },
-  driverRiver: {
+  riverCurveMain: {
     position: 'absolute',
     top: -20,
-    bottom: -20,
-    left: width * 0.12,
-    width: 44,
-    backgroundColor: '#BAE6FD',
+    right: -40,
+    width: SCREEN_WIDTH * 0.42,
+    height: SCREEN_HEIGHT * 0.65,
+    backgroundColor: '#8BC4F2',
+    borderTopLeftRadius: 180,
+    borderBottomLeftRadius: 220,
     transform: [{ rotate: '12deg' }],
+    opacity: 0.9,
   },
-  driverRiverCurve: {
+  kozhippillyRoad: {
     position: 'absolute',
-    top: 60,
-    left: -20,
-    width: width * 0.35,
-    height: 120,
-    backgroundColor: '#BAE6FD',
-    borderRadius: 80,
-    transform: [{ rotate: '-18deg' }],
-  },
-  driverRoadMinor1: {
-    position: 'absolute',
-    top: 70,
-    left: 0,
-    right: 0,
-    height: 10,
+    top: SCREEN_HEIGHT * 0.10,
+    left: -40,
+    width: SCREEN_WIDTH * 1.25,
+    height: 18,
     backgroundColor: '#FFFFFF',
-    borderColor: '#E2E8F0',
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    transform: [{ rotate: '4deg' }],
+    borderColor: '#D1D5DB',
+    transform: [{ rotate: '24deg' }],
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+    ...Shadows.xs,
   },
-  driverRoadMinor2: {
-    position: 'absolute',
-    bottom: 40,
-    left: -20,
-    right: -20,
-    height: 12,
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E2E8F0',
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    transform: [{ rotate: '-12deg' }],
+  roadLabelText: {
+    fontSize: 9.5,
+    fontWeight: '600',
+    color: '#64748B',
+    letterSpacing: 0.2,
   },
-  driverRoadMinor3: {
+  riverBridge: {
     position: 'absolute',
-    top: -20,
-    bottom: -20,
-    left: width * 0.65,
-    width: 10,
+    top: SCREEN_HEIGHT * 0.14,
+    right: SCREEN_WIDTH * 0.14,
+    width: 28,
+    height: 22,
+    backgroundColor: '#CBD5E1',
+    borderRadius: 3,
+    borderLeftWidth: 2,
+    borderRightWidth: 2,
+    borderColor: '#94A3B8',
+    transform: [{ rotate: '24deg' }],
+    zIndex: 3,
+  },
+  riverBankRoad: {
+    position: 'absolute',
+    top: -30,
+    right: SCREEN_WIDTH * 0.10,
+    width: 14,
+    height: SCREEN_HEIGHT * 0.65,
     backgroundColor: '#FFFFFF',
-    borderColor: '#E2E8F0',
     borderLeftWidth: 1,
     borderRightWidth: 1,
-    transform: [{ rotate: '20deg' }],
+    borderColor: '#D1D5DB',
+    transform: [{ rotate: '16deg' }],
+    zIndex: 2,
   },
-  driverHighway85: {
+  roadResidential1: {
     position: 'absolute',
-    top: -40,
-    bottom: -40,
-    left: width * 0.36,
-    width: 28,
-    backgroundColor: '#FDE047',
-    borderColor: '#EAB308',
-    borderLeftWidth: 1.5,
-    borderRightWidth: 1.5,
+    top: SCREEN_HEIGHT * 0.16,
+    left: -20,
+    width: SCREEN_WIDTH * 0.70,
+    height: 10,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#E2E8F0',
     transform: [{ rotate: '-32deg' }],
+    zIndex: 1,
   },
-  highwayShield: {
+  roadResidential2: {
     position: 'absolute',
-    top: 130,
-    left: width * 0.68,
-    width: 22,
-    height: 18,
-    backgroundColor: '#FDE047',
-    borderColor: '#CA8A04',
-    borderWidth: 1,
-    borderRadius: 3,
+    top: SCREEN_HEIGHT * 0.23,
+    left: SCREEN_WIDTH * 0.12,
+    width: SCREEN_WIDTH * 0.65,
+    height: 11,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#E2E8F0',
+    transform: [{ rotate: '-28deg' }],
+    zIndex: 1,
+  },
+  roadResidential3: {
+    position: 'absolute',
+    top: SCREEN_HEIGHT * 0.28,
+    left: SCREEN_WIDTH * 0.05,
+    width: SCREEN_WIDTH * 0.75,
+    height: 12,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#E2E8F0',
+    transform: [{ rotate: '-25deg' }],
+    zIndex: 1,
+  },
+  pickupPointRoot: {
+    position: 'absolute',
+    width: 140,
+    alignItems: 'center',
+    zIndex: 6,
+    transform: [{ translateX: -70 }, { translateY: -74 }],
+  },
+  calloutPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F4A2B',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+    ...Shadows.md,
+  },
+  calloutText: {
+    color: '#FFFFFF',
+    fontSize: 11.5,
+    fontWeight: '700',
+    marginRight: 2,
+  },
+  calloutTriangle: {
+    width: 0,
+    height: 0,
+    backgroundColor: 'transparent',
+    borderStyle: 'solid',
+    borderLeftWidth: 5,
+    borderRightWidth: 5,
+    borderTopWidth: 5,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: '#0F4A2B',
+    marginBottom: 1,
+  },
+  pinSymbolWrap: {
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+    height: 38,
+    width: 38,
+  },
+  pinWhiteCircle: {
+    position: 'absolute',
+    top: 9,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#FFFFFF',
+  },
+  pinGroundShadow: {
+    width: 16,
+    height: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(15, 74, 43, 0.35)',
+    marginTop: -3,
+  },
+  destinationMarkerRoot: {
+    position: 'absolute',
+    alignItems: 'center',
+    zIndex: 7,
+    transform: [{ translateX: -40 }, { translateY: -46 }],
+  },
+  destCalloutPill: {
+    backgroundColor: '#DC2626',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
+    marginBottom: 2,
+    ...Shadows.md,
+  },
+  destCalloutText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  vehicleContainer: {
+    position: 'absolute',
     zIndex: 5,
+  },
+  carBodyShadow: {
+    position: 'absolute',
+    bottom: -2,
+    width: 18,
+    height: 30,
+    borderRadius: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.18)',
+  },
+  carBody: {
+    width: 16,
+    height: 28,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#94A3B8',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+    ...Shadows.sm,
+  },
+  carWindshieldFront: {
+    width: 10,
+    height: 4,
+    backgroundColor: '#334155',
+    borderTopLeftRadius: 2,
+    borderTopRightRadius: 2,
+  },
+  carRoof: {
+    width: 11,
+    height: 10,
+    backgroundColor: '#F8FAFC',
+  },
+  carWindshieldRear: {
+    width: 10,
+    height: 3,
+    backgroundColor: '#334155',
+    borderBottomLeftRadius: 2,
+    borderBottomRightRadius: 2,
+  },
+  autoBody: {
+    width: 15,
+    height: 24,
+    borderRadius: 4,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#047857',
+    ...Shadows.sm,
+  },
+  autoYellowRoof: {
+    width: '100%',
+    height: 11,
+    backgroundColor: '#FACC15',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  autoWindshield: {
+    width: 10,
+    height: 3,
+    backgroundColor: '#1E293B',
+    marginTop: 1,
+    borderRadius: 1,
+  },
+  autoGreenBase: {
+    width: '100%',
+    height: 13,
+    backgroundColor: '#059669',
+  },
+  bikeBody: {
+    width: 7,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    ...Shadows.xs,
+  },
+  bikeWheelFront: {
+    width: 4,
+    height: 5,
+    backgroundColor: '#1E293B',
+    borderRadius: 2,
+  },
+  bikeTank: {
+    width: 6,
+    height: 7,
+    backgroundColor: '#10B981',
+    borderRadius: 2,
+  },
+  bikeWheelRear: {
+    width: 4,
+    height: 5,
+    backgroundColor: '#1E293B',
+    borderRadius: 2,
+  },
+  driverLocationPinCard: {
+    position: 'absolute',
+    left: SCREEN_WIDTH * 0.30,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.white,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    ...Shadows.sm,
+    zIndex: 8,
+  },
+  driverLocationPinCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#0F4A2B',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   maceLandmark: {
     position: 'absolute',
-    top: 48,
-    left: 28,
+    left: 20,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: Radii.sm,
@@ -565,33 +902,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  locationPinCard: {
-    position: 'absolute',
-    top: 38,
-    left: width * 0.36,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.white,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: Radii.lg,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    ...Shadows.sm,
-    zIndex: 8,
-  },
-  locationPinCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#0F4A2B',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   driverBlueDotAura: {
     position: 'absolute',
-    top: 112,
-    left: width * 0.48,
+    left: SCREEN_WIDTH * 0.48,
     zIndex: 7,
     alignItems: 'center',
     justifyContent: 'center',
@@ -613,54 +926,15 @@ const styles = StyleSheet.create({
   },
   driverCarMarker: {
     position: 'absolute',
-    top: 138,
-    left: width * 0.52,
+    left: SCREEN_WIDTH * 0.52,
     zIndex: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    transform: [{ rotate: '-32deg' }],
-  },
-  carBodyShadow: {
-    position: 'absolute',
-    bottom: -2,
-    width: 22,
-    height: 38,
-    borderRadius: 6,
-    backgroundColor: 'rgba(0, 0, 0, 0.18)',
-  },
-  carBody: {
-    width: 20,
-    height: 36,
-    borderRadius: 5,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#94A3B8',
-    alignItems: 'center',
-  },
-  carWindshield: {
-    width: 14,
-    height: 7,
-    backgroundColor: '#1E293B',
-    borderTopLeftRadius: 2,
-    borderTopRightRadius: 2,
-    marginTop: 4,
-  },
-  carRoof: {
-    width: 14,
-    height: 11,
-    backgroundColor: '#E2E8F0',
-  },
-  carRearWindow: {
-    width: 12,
-    height: 5,
-    backgroundColor: '#334155',
-    borderBottomLeftRadius: 2,
-    borderBottomRightRadius: 2,
+    transform: [{ rotate: '-28deg' }],
   },
   floatingControlsColumn: {
     position: 'absolute',
     right: 14,
-    top: 36,
     zIndex: 9,
     gap: 8,
   },
@@ -672,36 +946,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     ...Shadows.md,
-  },
-  driverRoadMinorLower: {
-    position: 'absolute',
-    left: -20,
-    right: -20,
-    height: 12,
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E2E8F0',
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    transform: [{ rotate: '8deg' }],
-  },
-  kothamangalamLandmark: {
-    position: 'absolute',
-    left: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Radii.sm,
-    ...Shadows.xs,
-    zIndex: 6,
-  },
-  landmarkDotTown: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.primary,
   },
 });
 

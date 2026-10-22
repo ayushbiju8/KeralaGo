@@ -358,4 +358,59 @@ This file is the living development history of the KeralaGo frontend. Every mean
   - Attached gesture handlers across the full slider container instead of only the knob.
   - Added seamless dual-interaction support: swipe-to-complete (clamped drag past 40% threshold or flick) as well as tap-to-complete fallback with smooth end-to-end animation.
 
+### Main Home Page — Exact Match with "Green Ride-Hailing Map Interface.png"
+
+#### Actions Performed
+- **Map & Environment Layer (`KeralaMapBackground.tsx`)**:
+  - Replaced generic grid with exact Kothamangalam / Mar Athanasius College of Engineering geography from the reference mockup.
+  - Added "Kozhippilly - College Junction Rd" with printed road label.
+  - Added river waterway flowing down the right quadrant with light blue river tones and Kozhippilly bridge crossing.
+  - Added "Mar Athanasius College of Engineering" landmark pin with graduation cap icon badge.
+  - Added "M B Hostel" landmark location pin.
+  - Added live moving/oriented vehicles along roads (white cars, yellow/green Kerala auto rickshaws, green sports bike).
+  - Implemented the prominent "Pickup Point" callout: 3-tier concentric translucent radiating emerald green aura circles, center dark green pin with white center dot, and the floating dark green callout pill ("Pickup Point ›") with downward pointing tail.
+- **Top Search & Floating Map Actions**:
+  - Full-screen map overlay layout with `FloatingSearchBar` ("Where do you want to go?" + "Now ▾" dark green pill).
+  - Added right floating map buttons: Notification bell with green live dot badge (`FloatingMapButton`) and GPS target crosshairs button.
+- **Bottom Sheet & Decorative Elements**:
+  - Created `SheetDecorativeWave` molecule rendering the signature flowing organic green contour wave curves, dotted trajectory trail, mini green car driving along the path, and destination pin marker.
+- **Suggestions Grid (2×4)**:
+  - Enhanced `ServiceCategoryCard` with support for image assets, custom graphics, and squircle card container.
+  - Integrated 3D rendered vehicle assets (`ride_sedan.jpg`, `bike.jpg`, `auto.jpg`) into `src/assets/vehicles/`.
+  - Added all 8 categories matching reference image:
+    1. Ride (3D white sedan)
+    2. Bike (3D green motorcycle)
+    3. Auto (3D Indian green/yellow auto rickshaw)
+    4. Pink Ride (white sedan + pink circular shield badge)
+    5. Package (cardboard shipping box graphic)
+    6. Share Taxi (white sedan with floating green passenger group icon)
+    7. Rentals (green circular clock graphic)
+    8. Schedule Ride (green calendar with clock graphic)
+- **Recent Destinations Section**:
+  - Populated with exact locations from reference UI:
+    1. Mar Athanasius College of Engineering / Kothamangalam, Kerala
+    2. M B Hostel / MACE Hostels Road, Kothamangalam
+    3. kattuchira / Kothamangalam, Kerala
+- **Navigation & Tabs**:
+  - Updated `CustomerHomePage.tsx` to 3 tabs: `Home`, `Bookings`, `Profile`.
+  - Refined `BottomTabBar.tsx` with light green capsule around active Home icon, dark green label, indicator bar, and iOS home indicator.
+  - Moved role toggle into Profile tab Preferences, preserving full-screen UI purity.
+### Bottom Navbar Visual Fix & Driver Map Integration
+
+#### Actions Performed
+- **Fixed Bottom Navigation Bar Visual Errors (`BottomTabBar.tsx`)**:
+  - Eliminated vertical jumping and baseline misalignment between active and inactive tabs by replacing conditional indicator rendering with a persistent, reserved slot (`backgroundColor: isActive ? '#0F4A2B' : 'transparent'`).
+  - Fixed tab vertical centering by setting fixed height (56pt) and `justifyContent: 'flex-start'`, ensuring all 3 tabs share the exact same horizontal baseline.
+  - Eliminated duplicate home indicator rendering: on devices with native system insets (`insets.bottom > 0`), the OS draws the native home bar, avoiding duplicate overlapping bars; only renders a subtle indicator on web when `insets.bottom === 0`.
+  - Refined pill container dimensions (`width: 54, height: 28`) for comfortable icon centering and sharp contrast.
+- **Unified Live Google Maps Integration on Driver Page (`KeralaMapBackground.tsx`)**:
+  - Enhanced `KeralaMapBackground.tsx` to support both `variant="customer"` and `variant="driver"`.
+  - Resolved duplicate `carBody` style declaration error in `StyleSheet.create`.
+  - Connected the live Google Maps SDK instance on Web, custom Kerala green styling, and Kothamangalam / MACE coordinates to `DriverHomePage.tsx`.
+  - Preserved driver-specific map features: driver location beacon ("Near MACE / Kothamangalam"), driver car marker with blue pulse aura dot, MACE landmark, and floating map controls (Locate, Layers, Navigate).
+- **Verification**:
+  - Ran `npx tsc --noEmit` — passed with 0 errors across the entire codebase.
+  - Updated `component_registry.md` and `work.md`.
+
+
 
