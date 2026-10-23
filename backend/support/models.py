@@ -173,6 +173,19 @@ class TicketStatus(models.TextChoices):
     CLOSED = "CLOSED", "Closed"
 
 
+class TicketCategory(models.TextChoices):
+    RECKLESS_DRIVING = "RECKLESS_DRIVING", "Rash or Reckless Driving"
+    METER_DISPUTE = "METER_DISPUTE", "Demanded Extra Cash / Meter Dispute"
+    RUDE_BEHAVIOR = "RUDE_BEHAVIOR", "Unprofessional / Rude Behavior"
+    AC_REFUSAL = "AC_REFUSAL", "AC Refusal / Vehicle Condition"
+    WRONG_ROUTE = "WRONG_ROUTE", "Wrong Route / Unsafe Dropoff"
+    SAFETY_CONCERN = "SAFETY_CONCERN", "Other Safety Concern"
+    LOST_ITEM = "LOST_ITEM", "Lost Item / Property"
+    BILLING = "BILLING", "Payment & Billing Dispute"
+    GENERAL = "GENERAL", "General Inquiry & Support"
+
+
+
 class SupportTicket(models.Model):
     """
     Customer service and safety incident support ticket.
@@ -196,6 +209,12 @@ class SupportTicket(models.Model):
     )
     subject = models.CharField(
         max_length=255
+    )
+    category = models.CharField(
+        max_length=50,
+        choices=TicketCategory.choices,
+        default=TicketCategory.GENERAL,
+        db_index=True
     )
     description = models.TextField()
     status = models.CharField(

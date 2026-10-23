@@ -64,6 +64,11 @@ class User(AbstractBaseUser, PermissionsMixin):
         blank=True,
         default=""
     )
+    email = models.EmailField(
+        blank=True,
+        null=True,
+        help_text="Optional user email address"
+    )
     role = models.CharField(
         max_length=10,
         choices=UserRole.choices,
@@ -219,6 +224,24 @@ class UserProfile(models.Model):
         blank=True,
         null=True
     )
+    quiet_ride = models.BooleanField(
+        default=False,
+        help_text="Preference for silent/quiet trip"
+    )
+    ac_preferred = models.BooleanField(
+        default=True,
+        help_text="Preference for air conditioned ride"
+    )
+    cashless_only = models.BooleanField(
+        default=False,
+        help_text="Preference for online/cashless payment only"
+    )
+    green_km = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=0.00,
+        help_text="Green eco-miles logged on electric/low-emission rides"
+    )
     created_at = models.DateTimeField(
         auto_now_add=True
     )
@@ -231,6 +254,63 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return f"Profile for {self.user.mobile_number}"
+
+
+class UserSavedLocation(models.Model):
+    """
+    Passenger saved addresses and frequent destinations (e.g., Home, Work, Campus).
+    """
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="saved_locations"
+    )
+    label = models.CharField(
+        max_length=50,
+        help_text="Category label: Home, Work, Campus, Other"
+    )
+    title = models.CharField(
+        max_length=150,
+        help_text="Short name: e.g. Jawahar Nagar, Kadavanthra"
+    )
+    address = models.CharField(
+        max_length=500,
+        help_text="Full address or landmark details"
+    )
+    latitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True
+    )
+    longitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True
+    )
+    icon_name = models.CharField(
+        max_length=50,
+        default="bookmark-outline"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True
+    )
+
+    class Meta:
+        db_table = "accounts_user_saved_location"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.label}: {self.title} ({self.user.mobile_number})"
 
 
 class EmergencyContact(models.Model):

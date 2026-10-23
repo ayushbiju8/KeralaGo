@@ -4,6 +4,17 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 
 
+class ServiceType(models.TextChoices):
+    STANDARD = "STANDARD", "Standard Ride"
+    BIKE = "BIKE", "Bike"
+    AUTO = "AUTO", "Auto Rickshaw"
+    PINK = "PINK", "Pink Ride (Women Only)"
+    PACKAGE = "PACKAGE", "Package Delivery"
+    SHARE_TAXI = "SHARE_TAXI", "Share Taxi"
+    RENTAL = "RENTAL", "Rentals"
+    SCHEDULED = "SCHEDULED", "Scheduled Ride"
+
+
 class VehicleCategory(models.Model):
     """
     Vehicle category metadata (e.g. AUTO, SEDAN, SUV, HATCHBACK).
@@ -23,6 +34,41 @@ class VehicleCategory(models.Model):
         unique=True,
         db_index=True,
         help_text="Unique category slug/identifier (e.g. AUTO, SEDAN, SUV)"
+    )
+    service_type = models.CharField(
+        max_length=30,
+        choices=ServiceType.choices,
+        default=ServiceType.STANDARD,
+        db_index=True
+    )
+    description = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Short description displayed on ride booking sheet"
+    )
+    icon_name = models.CharField(
+        max_length=50,
+        default="car",
+        help_text="Expo/Material/Ionicons icon identifier"
+    )
+    icon_library = models.CharField(
+        max_length=50,
+        default="Ionicons"
+    )
+    image_url = models.URLField(
+        max_length=500,
+        blank=True,
+        null=True,
+        help_text="3D vehicle graphic illustration URL"
+    )
+    is_womens_only = models.BooleanField(
+        default=False,
+        help_text="Exclusive to verified female drivers & female passengers"
+    )
+    display_order = models.PositiveSmallIntegerField(
+        default=0,
+        help_text="Ordering in suggestions and vehicle selection list"
     )
     capacity = models.PositiveSmallIntegerField(
         default=4,
@@ -96,6 +142,12 @@ class Vehicle(models.Model):
     capacity = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(1)],
         help_text="Seating capacity"
+    )
+    color = models.CharField(
+        max_length=50,
+        blank=True,
+        default="",
+        help_text="Vehicle exterior color (e.g. Traditional Green & Yellow, White)"
     )
     is_active = models.BooleanField(
         default=True,

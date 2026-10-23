@@ -1,6 +1,7 @@
 import uuid
 from decimal import Decimal
 from django.db import models
+from django.conf import settings
 from django.core.validators import MinValueValidator
 
 
@@ -230,3 +231,165 @@ class DriverLedgerEntry(models.Model):
 
     def __str__(self):
         return f"LedgerEntry({self.driver.license_number}, {self.entry_type}): ₹{self.amount}"
+
+
+class CustomerWallet(models.Model):
+    """
+    Passenger digital balance wallet and cashback tracker.
+    """
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="wallet"
+    )
+    balance = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=[MinValueValidator(Decimal("0.00"))],
+        help_text="Available wallet balance in INR"
+    )
+    cashback_earned = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=[MinValueValidator(Decimal("0.00"))],
+        help_text="Total cumulative cashback reward earned"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True
+    )
+
+    class Meta:
+        db_table = "payments_customer_wallet"
+
+    def __str__(self):
+        return f"Wallet({self.user.mobile_number}): ₹{self.balance}"
+
+
+class WalletTransactionType(models.TextChoices):
+    TOP_UP = "TOP_UP", "Wallet Top-up"
+    RIDE_PAYMENT = "RIDE_PAYMENT", "Ride Payment"
+    CASHBACK = "CASHBACK", "Cashback Reward"
+    REFUND = "REFUND", "Refund"
+
+
+class CustomerWalletTransaction(models.Model):
+    """
+    Immutable ledger of credits and debits to passenger wallet.
+    """
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    wallet = models.ForeignKey(
+        CustomerWallet,
+        on_delete=models.PROTECT,
+        related_name="transactions"
+    )
+    amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.01"))]
+    )
+    is_credit = models.BooleanField(
+        default=True,
+        help_text="True for credit (+), False for debit (-)"
+    )
+    transaction_type = models.CharField(
+        max_length=30,
+        choices=WalletTransactionType.choices
+    )
+    title = models.CharField(
+        max_length=150,
+        help_text="e.g. Ride Fare #KL-TRIP-901 or Top-up via GPay"
+    )
+    ride = models.ForeignKey(
+        'rides.Ride',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="wallet_transactions"
+    )
+    gateway_reference = models.CharField(
+        max_length=150,
+        blank=True,
+        null=True
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    class Meta:
+        db_table = "payments_wallet_transaction"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        sign = "+" if self.is_credit else "-"
+        return f"{self.title}: {sign}₹{self.amount} ({self.created_at.strftime('%d %b')})"
+
+
+class SavedMethodType(models.TextChoices):
+    UPI = "UPI", "UPI (Google Pay / PhonePe)"
+    CARD = "CARD", "Credit / Debit Card"
+    WALLET = "WALLET", "KeralaGO Wallet"
+    CASH = "CASH", "Cash on Arrival"
+
+
+class UserSavedPaymentMethod(models.Model):
+    """
+    Saved payment method profile (e.g. linked UPI ID, masked card token).
+    """
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="saved_payment_methods"
+    )
+    method_type = models.CharField(
+        max_length=20,
+        choices=SavedMethodType.choices
+    )
+    title = models.CharField(
+        max_length=100,
+        help_text="e.g. UPI (Google Pay / PhonePe), HDFC Platinum Debit Card"
+    )
+    subtitle = models.CharField(
+        max_length=150,
+        help_text="e.g. Linked ID: arun@okaxis or •••• 4821"
+    )
+    identifier = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Masked card number or UPI handle or gateway token"
+    )
+    is_default = models.BooleanField(
+        default=False
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True
+    )
+
+    class Meta:
+        db_table = "payments_user_saved_method"
+        ordering = ["-is_default", "-created_at"]
+
+    def __str__(self):
+        return f"{self.title} - {self.user.mobile_number}"

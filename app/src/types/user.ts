@@ -10,4 +10,6 @@ export interface User {
   rating?: number;
   totalRides?: number;
   isOnline?: boolean;
+  defaultPaymentMethod?: string;
 }
+

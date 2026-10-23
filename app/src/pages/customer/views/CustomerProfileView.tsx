@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Typography, Icon, Button, Badge } from '../../../components/atoms';
 import { Colors, Spacing, Radii, Shadows } from '../../../constants/theme';
 import { customerData } from '../../../data';
+import { useAuth } from '../../../hooks/useAuth';
 
 interface CustomerProfileViewProps {
   onLogout?: () => void;
@@ -32,8 +33,9 @@ interface MenuItem {
  * Page: CustomerProfileView
  *
  * Exact replication of Profile screen from KeralaGo Ride Booking App UI Flow:
+ * - Dynamically connected to PostgreSQL/SQLite database via useAuth
  * - Header: "Profile" title with right Settings gear icon
- * - User card: Emerald circular avatar with initial letter "D", Name ("Devarth"), Phone, and "Edit >" button
+ * - User card: Emerald circular avatar with initial letter, dynamic Name, Phone, and "Edit >" button
  * - Menu Items Card:
  *   1. Payment Methods
  *   2. Your Addresses
@@ -49,11 +51,24 @@ const CustomerProfileView: React.FC<CustomerProfileViewProps> = ({
   onToggleRole,
   currentRole,
 }) => {
-  const [userName, setUserName] = useState<string>('Devarth');
-  const [userPhone, setUserPhone] = useState<string>('+91 98765 43210');
+  const { user, updateProfile } = useAuth();
+  const [userName, setUserName] = useState<string>(user?.name || 'Arun Kumar');
+  const [userPhone, setUserPhone] = useState<string>(user?.phone || '+91 98470 12345');
   const [editModalVisible, setEditModalVisible] = useState<boolean>(false);
   const [editNameInput, setEditNameInput] = useState<string>(userName);
   const [editPhoneInput, setEditPhoneInput] = useState<string>(userPhone);
+
+  // Sync state whenever authenticated user data is fetched or updated in database
+  useEffect(() => {
+    if (user?.name) {
+      setUserName(user.name);
+      setEditNameInput(user.name);
+    }
+    if (user?.phone) {
+      setUserPhone(user.phone);
+      setEditPhoneInput(user.phone);
+    }
+  }, [user]);
 
   // Preference switches
   const [preferencesModalVisible, setPreferencesModalVisible] = useState<boolean>(false);
@@ -64,17 +79,17 @@ const CustomerProfileView: React.FC<CustomerProfileViewProps> = ({
   // Addresses modal
   const [addressesModalVisible, setAddressesModalVisible] = useState<boolean>(false);
 
-  const initialLetter = (userName.trim().charAt(0) || 'D').toUpperCase();
+  const initialLetter = (userName.trim().charAt(0) || 'K').toUpperCase();
 
-  const handleSaveProfile = () => {
-    if (editNameInput.trim()) {
-      setUserName(editNameInput.trim());
-    }
-    if (editPhoneInput.trim()) {
-      setUserPhone(editPhoneInput.trim());
+  const handleSaveProfile = async () => {
+    const trimmedName = editNameInput.trim();
+    if (trimmedName) {
+      setUserName(trimmedName);
+      await updateProfile(trimmedName);
     }
     setEditModalVisible(false);
   };
+
 
   const menuItems: MenuItem[] = [
     {
