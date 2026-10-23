@@ -117,6 +117,67 @@ class RideStatus(models.TextChoices):
     CANCELLED = "CANCELLED", "Cancelled"
 
 
+class Coupon(models.Model):
+    """
+    Promotional discounts and coupons (e.g. KERALAGO50).
+    """
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    code = models.CharField(
+        max_length=30,
+        unique=True,
+        db_index=True,
+        help_text="Promo code string (uppercase)"
+    )
+    title = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        help_text="Display title e.g. 50% Off First 3 Rides"
+    )
+    discount_percent = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=[MinValueValidator(Decimal("0.00")), MaxValueValidator(Decimal("100.00"))]
+    )
+    max_discount_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("50.00"),
+        validators=[MinValueValidator(Decimal("0.00"))]
+    )
+    flat_discount_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=[MinValueValidator(Decimal("0.00"))]
+    )
+    is_active = models.BooleanField(
+        default=True
+    )
+    valid_from = models.DateTimeField(
+        help_text="Coupon validity start timestamp"
+    )
+    valid_to = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Coupon expiry timestamp"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    class Meta:
+        db_table = "rides_coupon"
+
+    def __str__(self):
+        return f"Coupon {self.code} ({self.discount_percent}% up to ₹{self.max_discount_amount})"
+
+
 class Ride(models.Model):
     """
     Central transactional entity for taxi booking lifecycle.
@@ -166,6 +227,14 @@ class Ride(models.Model):
         choices=RideStatus.choices,
         default=RideStatus.REQUESTED,
         db_index=True
+    )
+    applied_coupon = models.ForeignKey(
+        'rides.Coupon',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="rides",
+        help_text="Coupon or discount code applied to this ride"
     )
     estimated_distance_km = models.DecimalField(
         max_digits=8,
@@ -319,6 +388,12 @@ class RideStop(models.Model):
     stop_type = models.CharField(
         max_length=20,
         choices=StopType.choices
+    )
+    title = models.CharField(
+        max_length=150,
+        blank=True,
+        default="",
+        help_text="Landmark name / building title e.g. M B Hostel"
     )
     address = models.CharField(
         max_length=500

@@ -55,6 +55,32 @@ class DriverProfile(models.Model):
         db_index=True,
         help_text="Driver online availability for hailing"
     )
+    auto_accept_rides = models.BooleanField(
+        default=False,
+        help_text="Whether to auto-accept incoming ride offers"
+    )
+    navigation_provider = models.CharField(
+        max_length=50,
+        default="Google Maps",
+        help_text="Default navigation mapping application"
+    )
+    bank_account_number = models.CharField(
+        max_length=50,
+        blank=True,
+        default="",
+        help_text="Disbursement bank account number"
+    )
+    bank_ifsc = models.CharField(
+        max_length=20,
+        blank=True,
+        default="",
+        help_text="Bank IFSC code"
+    )
+    bank_account_holder_name = models.CharField(
+        max_length=150,
+        blank=True,
+        default=""
+    )
     created_at = models.DateTimeField(
         auto_now_add=True
     )
@@ -155,6 +181,7 @@ class DocumentType(models.TextChoices):
     RC = "RC", "Registration Certificate (RC)"
     INSURANCE = "INSURANCE", "Insurance Certificate"
     IDENTITY = "IDENTITY", "Identity Proof"
+    POLICE_CLEARANCE = "POLICE_CLEARANCE", "Police Background Clearance"
 
 
 class DriverDocument(models.Model):

@@ -1,18 +1,34 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { User, UserRole } from '../../types/user';
+import {
+  sendOtpApi,
+  verifyOtpApi,
+  updateUserProfileApi,
+  fetchUserProfileApi,
+  SendOtpResponse,
+} from '../../services/authApi';
 
 export interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   login: (role?: UserRole) => void;
+  loginWithCredentials: (
+    mobile: string,
+    otp: string,
+    role?: UserRole,
+    name?: string
+  ) => Promise<{ success: boolean; message?: string }>;
+  sendOtp: (mobile: string, role?: UserRole) => Promise<SendOtpResponse>;
+  updateProfile: (name: string, paymentMethod?: string) => Promise<boolean>;
   logout: () => void;
   setRole: (role: UserRole) => void;
   toggleRole: () => void;
   toggleDriverDuty: () => void;
+  refreshProfile: () => Promise<void>;
 }
 
 const DEFAULT_CUSTOMER: User = {
-  id: 'usr_kl_001',
+  id: '13889384-b187-414f-8fc9-7ed550db8433',
   name: 'Arun Kumar',
   phone: '+91 98470 12345',
   email: 'arun.kerala@example.com',
@@ -20,10 +36,11 @@ const DEFAULT_CUSTOMER: User = {
   avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
   rating: 4.88,
   totalRides: 34,
+  defaultPaymentMethod: 'UPI',
 };
 
 const DEFAULT_DRIVER: User = {
-  id: 'drv_kl_108',
+  id: '827e2bdd-8609-4438-863d-d056b3aefdbe',
   name: 'Suresh Pillai',
   phone: '+91 94471 98765',
   email: 'suresh.keralago@gmail.com',
@@ -32,14 +49,53 @@ const DEFAULT_DRIVER: User = {
   rating: 4.94,
   totalRides: 1420,
   isOnline: true,
+  defaultPaymentMethod: 'UPI',
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(DEFAULT_CUSTOMER);
+  // Authentication Guard: Initially null to enforce login and RBAC route protection
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
+  // Send OTP linked to PostgreSQL / SQLite database
+  const sendOtp = useCallback(async (mobile: string, role: UserRole = 'USER'): Promise<SendOtpResponse> => {
+    setIsLoading(true);
+    try {
+      const res = await sendOtpApi(mobile, role);
+      return res;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Login with OTP verified against database
+  const loginWithCredentials = useCallback(
+    async (
+      mobile: string,
+      otp: string,
+      role: UserRole = 'USER',
+      name?: string
+    ): Promise<{ success: boolean; message?: string }> => {
+      setIsLoading(true);
+      try {
+        const res = await verifyOtpApi(mobile, otp, role, name);
+        if (res.success && res.user) {
+          setUser(res.user);
+          return { success: true };
+        }
+        return { success: false, message: res.message || 'Verification failed' };
+      } catch (err: any) {
+        return { success: false, message: err.message || 'Login error' };
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    []
+  );
+
+  // Quick fallback login for role switching or testing
   const login = useCallback((role: UserRole = 'USER') => {
     setIsLoading(true);
     setTimeout(() => {
@@ -47,6 +103,33 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setIsLoading(false);
     }, 200);
   }, []);
+
+  // Update profile and persist directly to database
+  const updateProfile = useCallback(
+    async (name: string, paymentMethod?: string): Promise<boolean> => {
+      if (!user) return false;
+      const ok = await updateUserProfileApi(user.phone, name, paymentMethod);
+      setUser((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          name: name || prev.name,
+          defaultPaymentMethod: paymentMethod || prev.defaultPaymentMethod,
+        };
+      });
+      return ok;
+    },
+    [user]
+  );
+
+  // Re-fetch profile dynamically from database
+  const refreshProfile = useCallback(async () => {
+    if (!user) return;
+    const fresh = await fetchUserProfileApi(user.phone, user.id);
+    if (fresh) {
+      setUser((prev) => (prev ? { ...prev, ...fresh } : fresh));
+    }
+  }, [user]);
 
   const logout = useCallback(() => {
     setUser(null);
@@ -91,6 +174,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         user,
         isLoading,
         login,
+        loginWithCredentials,
+        sendOtp,
+        updateProfile,
+        refreshProfile,
         logout,
         setRole,
         toggleRole,
