@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
+import { apiGet } from '../../services/apiClient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Typography,
@@ -53,6 +54,24 @@ const DriverEarningsPage: React.FC<DriverEarningsPageProps> = ({
   tabs = [],
 }) => {
   const [selectedSegment, setSelectedSegment] = useState<string>('daily');
+  const [earningsData, setEarningsData] = useState<any>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    apiGet<any>('/driver/earnings/', null).then((res) => {
+      if (isMounted && res.data) {
+        setEarningsData(res.data);
+      }
+    });
+    return () => { isMounted = false; };
+  }, []);
+
+  const summary = earningsData?.summary || {
+    todayEarnings: '₹0.00',
+    weeklyEarnings: '₹0.00',
+    tripsCountToday: 0,
+    onlineHoursToday: '0.0 hrs',
+  };
 
   return (
     <View style={styles.root}>
@@ -90,10 +109,10 @@ const DriverEarningsPage: React.FC<DriverEarningsPageProps> = ({
 
           {/* Large Earnings Value */}
           <Typography variant="h1" weight="bold" color={Colors.textPrimary} align="center" style={styles.earningsValue}>
-            ₹1,240
+            {summary.todayEarnings || '₹0.00'}
           </Typography>
           <Typography variant="caption" color={Colors.textSecondary} align="center">
-            Total Earnings
+            Total Earnings Today
           </Typography>
 
           {/* 3 Metric Mini Cards */}
@@ -101,17 +120,17 @@ const DriverEarningsPage: React.FC<DriverEarningsPageProps> = ({
             {/* 1. Trips */}
             <View style={styles.metricCard}>
               <Typography variant="body1" weight="bold" color={Colors.textPrimary} align="center">
-                12
+                {summary.tripsCountToday ?? 0}
               </Typography>
               <Typography variant="caption" color={Colors.textSecondary} align="center" style={{ marginTop: 2 }}>
-                Trips
+                Trips Today
               </Typography>
             </View>
 
             {/* 2. Online Time */}
             <View style={styles.metricCard}>
               <Typography variant="body1" weight="bold" color={Colors.textPrimary} align="center">
-                10h 20m
+                {summary.onlineHoursToday || '0.0 hrs'}
               </Typography>
               <Typography variant="caption" color={Colors.textSecondary} align="center" style={{ marginTop: 2 }}>
                 Online Time
@@ -121,10 +140,10 @@ const DriverEarningsPage: React.FC<DriverEarningsPageProps> = ({
             {/* 3. Per Trip */}
             <View style={styles.metricCard}>
               <Typography variant="body1" weight="bold" color={Colors.textPrimary} align="center">
-                ₹103
+                {summary.tripsCountToday > 0 ? summary.todayEarnings : '₹0'}
               </Typography>
               <Typography variant="caption" color={Colors.textSecondary} align="center" style={{ marginTop: 2 }}>
-                Per Trip
+                Avg / Trip
               </Typography>
             </View>
           </View>
@@ -164,13 +183,13 @@ const DriverEarningsPage: React.FC<DriverEarningsPageProps> = ({
             iconName="steering"
             iconLibrary="MaterialCommunityIcons"
             label="Trip Earnings"
-            rightNode={<Typography variant="body1" weight="bold" color={Colors.textPrimary}>₹1,180</Typography>}
+            rightNode={<Typography variant="body1" weight="bold" color={Colors.textPrimary}>{summary.todayEarnings || '₹0.00'}</Typography>}
           />
           <InfoRow
             iconName="hand-coin"
             iconLibrary="MaterialCommunityIcons"
             label="Tips"
-            rightNode={<Typography variant="body1" weight="bold" color={Colors.textPrimary}>₹60</Typography>}
+            rightNode={<Typography variant="body1" weight="bold" color={Colors.textPrimary}>₹0</Typography>}
           />
           <InfoRow
             iconName="gift-outline"

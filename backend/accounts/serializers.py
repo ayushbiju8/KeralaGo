@@ -12,6 +12,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'mobile_number',
+            'email',
             'full_name',
             'role',
             'is_active',
@@ -33,18 +34,40 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class SendOTPSerializer(serializers.Serializer):
-    mobile_number = serializers.CharField(max_length=20)
+    mode = serializers.ChoiceField(choices=['LOGIN', 'REGISTER'], default='LOGIN')
+    mobile_number = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    email = serializers.EmailField(required=False, allow_blank=True)
     role = serializers.ChoiceField(choices=UserRole.choices, default=UserRole.USER)
+    full_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        mobile = attrs.get('mobile_number', '').strip()
+        email = attrs.get('email', '').strip()
+        if not mobile and not email:
+            raise serializers.ValidationError("Either 'mobile_number' or 'email' must be provided.")
+        return attrs
 
 
 class VerifyOTPSerializer(serializers.Serializer):
-    mobile_number = serializers.CharField(max_length=20)
+    mode = serializers.ChoiceField(choices=['LOGIN', 'REGISTER'], default='LOGIN')
+    mobile_number = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    email = serializers.EmailField(required=False, allow_blank=True)
     otp = serializers.CharField(max_length=10)
+    request_id = serializers.CharField(max_length=128, required=False, allow_blank=True)
     role = serializers.ChoiceField(choices=UserRole.choices, required=False)
     full_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
 
+    def validate(self, attrs):
+        mobile = attrs.get('mobile_number', '').strip()
+        email = attrs.get('email', '').strip()
+        if not mobile and not email:
+            raise serializers.ValidationError("Either 'mobile_number' or 'email' must be provided.")
+        return attrs
+
 
 class UpdateProfileSerializer(serializers.Serializer):
-    mobile_number = serializers.CharField(max_length=20, required=False)
-    full_name = serializers.CharField(max_length=150, required=False)
-    default_payment_method = serializers.CharField(max_length=30, required=False)
+    mobile_number = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    email = serializers.EmailField(required=False, allow_blank=True)
+    full_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    default_payment_method = serializers.CharField(max_length=30, required=False, allow_blank=True)
+

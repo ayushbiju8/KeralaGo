@@ -5,6 +5,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
@@ -39,21 +40,32 @@ const DriverProfilePage: React.FC<DriverProfilePageProps> = ({
   onTabPress = () => {},
   tabs = [],
 }) => {
-  const { user, toggleRole } = useAuth();
+  const { user, toggleRole, logout } = useAuth();
 
   const handleLogout = () => {
-    Alert.alert(
-      'Log Out',
-      'Are you sure you want to log out of KeralaGo Driver?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Log Out',
-          style: 'destructive',
-          onPress: () => toggleRole(),
-        },
-      ]
-    );
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined') {
+        const confirmed = window.confirm('Are you sure you want to log out of KeralaGo Driver?');
+        if (confirmed) {
+          logout();
+        }
+      } else {
+        logout();
+      }
+    } else {
+      Alert.alert(
+        'Log Out',
+        'Are you sure you want to log out of KeralaGo Driver?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Log Out',
+            style: 'destructive',
+            onPress: logout,
+          },
+        ]
+      );
+    }
   };
 
   return (
@@ -82,40 +94,34 @@ const DriverProfilePage: React.FC<DriverProfilePageProps> = ({
         {/* ── Driver Header: Avatar, Name, Rating ── */}
         <View style={styles.profileHeader}>
           <Avatar
-            name="Rijin S"
+            name={user?.name || 'Driver Partner'}
             size="xl"
-            online={true}
+            online={user?.isOnline ?? false}
             style={styles.avatar}
           />
 
           <View style={styles.nameRow}>
             <Typography variant="h3" weight="bold" color={Colors.textPrimary}>
-              {user?.name || 'Rijin S'}
+              {user?.name || 'Driver Partner'}
             </Typography>
-            <View style={styles.verifiedBadge}>
-              <Icon library="Ionicons" name="checkmark-circle" size={14} color="#166534" style={{ marginRight: 3 }} />
-              <Typography variant="xs" weight="bold" color="#166534">
-                Verified
-              </Typography>
-            </View>
           </View>
 
           <View style={styles.ratingRow}>
             <Typography variant="body2" weight="bold" color={Colors.textPrimary}>
-              4.8
+              {user?.rating ? Number(user.rating).toFixed(1) : 'No rating yet'}
             </Typography>
-            <Icon library="Ionicons" name="star" size={15} color="#EAB308" style={{ marginHorizontal: 3 }} />
+            {user?.rating && <Icon library="Ionicons" name="star" size={15} color="#EAB308" style={{ marginHorizontal: 3 }} />}
             <Typography variant="caption" color={Colors.textSecondary}>
-              (320 trips)
+              ({user?.totalRides ?? 0} trips)
             </Typography>
           </View>
         </View>
 
-        {/* ── 3-Column Stats Card (320 Trips / 4.8 Rating / 6 Months) ── */}
+        {/* ── 3-Column Stats Card ── */}
         <Card style={styles.statsCard}>
           <View style={styles.statsCol}>
             <Typography variant="h3" weight="bold" color={Colors.textPrimary}>
-              320
+              {user?.totalRides ?? 0}
             </Typography>
             <Typography variant="caption" color={Colors.textSecondary} style={{ marginTop: 2 }}>
               Total Trips
@@ -126,7 +132,7 @@ const DriverProfilePage: React.FC<DriverProfilePageProps> = ({
 
           <View style={styles.statsCol}>
             <Typography variant="h3" weight="bold" color={Colors.textPrimary}>
-              4.8
+              {user?.rating ? Number(user.rating).toFixed(1) : '—'}
             </Typography>
             <Typography variant="caption" color={Colors.textSecondary} style={{ marginTop: 2 }}>
               Rating
@@ -137,10 +143,10 @@ const DriverProfilePage: React.FC<DriverProfilePageProps> = ({
 
           <View style={styles.statsCol}>
             <Typography variant="h3" weight="bold" color={Colors.textPrimary}>
-              6
+              {user?.role === 'DRIVER' ? 'Partner' : 'Driver'}
             </Typography>
             <Typography variant="caption" color={Colors.textSecondary} style={{ marginTop: 2 }}>
-              Months
+              Role
             </Typography>
           </View>
         </Card>

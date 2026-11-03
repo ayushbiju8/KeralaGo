@@ -12,6 +12,28 @@ export interface ApiResponse<T> {
   fromDb: boolean;
 }
 
+let currentAuthToken: string | null = null;
+
+export function setAuthToken(token: string | null): void {
+  currentAuthToken = token;
+}
+
+export function getAuthToken(): string | null {
+  return currentAuthToken;
+}
+
+function getHeaders(extraHeaders?: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+    ...(extraHeaders || {}),
+  };
+  if (currentAuthToken) {
+    headers['Authorization'] = `Bearer ${currentAuthToken}`;
+  }
+  return headers;
+}
+
 export async function apiGet<T>(endpoint: string, fallbackData: T): Promise<ApiResponse<T>> {
   try {
     const controller = new AbortController();
@@ -19,10 +41,7 @@ export async function apiGet<T>(endpoint: string, fallbackData: T): Promise<ApiR
 
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
+      headers: getHeaders(),
       signal: controller.signal,
     });
 
@@ -54,10 +73,7 @@ export async function apiPost<T>(endpoint: string, body: any): Promise<ApiRespon
 
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
+      headers: getHeaders(),
       body: JSON.stringify(body),
       signal: controller.signal,
     });
@@ -90,10 +106,7 @@ export async function apiPatch<T>(endpoint: string, body: any): Promise<ApiRespo
 
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'PATCH',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
+      headers: getHeaders(),
       body: JSON.stringify(body),
       signal: controller.signal,
     });
@@ -126,9 +139,7 @@ export async function apiDelete<T>(endpoint: string): Promise<ApiResponse<T>> {
 
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'DELETE',
-      headers: {
-        'Accept': 'application/json',
-      },
+      headers: getHeaders(),
       signal: controller.signal,
     });
 

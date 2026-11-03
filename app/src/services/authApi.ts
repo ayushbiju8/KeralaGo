@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import { User, UserRole } from '../types/user';
+import { setAuthToken, getAuthToken } from './apiClient';
 
 // Determine default API host depending on platform
 const getBaseApiUrl = (): string => {
@@ -14,119 +15,171 @@ const getBaseApiUrl = (): string => {
 
 const API_BASE = getBaseApiUrl();
 
+export interface SendOtpParams {
+  mode?: 'LOGIN' | 'REGISTER';
+  mobileNumber?: string;
+  email?: string;
+  role?: UserRole;
+  fullName?: string;
+}
+
 export interface SendOtpResponse {
   success: boolean;
   message: string;
-  mobile_number: string;
-  dev_otp: string;
-  user_exists: boolean;
-  role: UserRole;
-  full_name: string;
+  channel?: 'EMAIL' | 'MOBILE';
+  identifier?: string;
+  mobile_number?: string;
+  email?: string;
+  request_id?: string;
+  dev_otp?: string;
+  user_exists?: boolean;
+  role?: UserRole;
+  full_name?: string;
+  mode?: 'LOGIN' | 'REGISTER';
+}
+
+export interface VerifyOtpParams {
+  mode?: 'LOGIN' | 'REGISTER';
+  mobileNumber?: string;
+  email?: string;
+  otp: string;
+  requestId?: string;
+  request_id?: string;
+  role?: UserRole;
+  fullName?: string;
 }
 
 export interface VerifyOtpResponse {
   success: boolean;
   token: string;
+  token_type?: string;
   user: User;
   message?: string;
+  mode?: 'LOGIN' | 'REGISTER';
 }
 
 export const sendOtpApi = async (
-  mobileNumber: string,
-  role: UserRole = 'USER'
+  target: string | SendOtpParams,
+  defaultRole: UserRole = 'USER'
 ): Promise<SendOtpResponse> => {
-  try {
-    const res = await fetch(`${API_BASE}/auth/send-otp/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        mobile_number: mobileNumber,
-        role: role,
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.message || data.detail || 'Failed to send OTP');
-    }
-    return data;
-  } catch (err: any) {
-    // If backend is momentarily unreachable, fallback gracefully to offline dev response
-    console.warn('[authApi] sendOtp error, falling back:', err.message);
-    const cleanNumber = mobileNumber.startsWith('+91') ? mobileNumber : `+91${mobileNumber}`;
-    return {
-      success: true,
-      message: `OTP sent to ${cleanNumber} (offline fallback)`,
-      mobile_number: cleanNumber,
-      dev_otp: '1234',
-      user_exists: true,
-      role: role,
-      full_name: role === 'DRIVER' ? 'Suresh Pillai' : 'Arun Kumar',
-    };
+  const isObject = typeof target === 'object' && target !== null;
+  const rawMobile = isObject ? target.mobileNumber : target;
+  const rawEmail = isObject ? target.email : undefined;
+  const role = (isObject ? target.role : defaultRole) || defaultRole;
+  const mode = isObject && target.mode ? target.mode : 'LOGIN';
+  const fullName = isObject ? target.fullName : undefined;
+
+  const requestBody: any = { mode, role };
+  if (rawEmail) {
+    requestBody.email = rawEmail.trim().toLowerCase();
+  } else if (rawMobile) {
+    requestBody.mobile_number = rawMobile.trim();
   }
+  if (fullName) {
+    requestBody.full_name = fullName.trim();
+  }
+
+  const res = await fetch(`${API_BASE}/auth/send-otp/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(requestBody),
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok || data.success === false) {
+    const errorMsg =
+      data.message ||
+      data.detail ||
+      (typeof data === 'object' ? Object.values(data).flat().join(' ') : 'Failed to send OTP');
+    throw new Error(errorMsg);
+  }
+
+  return data;
 };
 
 export const verifyOtpApi = async (
-  mobileNumber: string,
-  otp: string,
-  role: UserRole = 'USER',
-  fullName?: string
+  target: string | VerifyOtpParams,
+  code?: string,
+  defaultRole: UserRole = 'USER',
+  defaultName?: string
 ): Promise<VerifyOtpResponse> => {
-  try {
-    const res = await fetch(`${API_BASE}/auth/verify-otp/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        mobile_number: mobileNumber,
-        otp: otp,
-        role: role,
-        full_name: fullName,
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok || !data.success) {
-      throw new Error(data.message || 'OTP verification failed');
-    }
-    return data;
-  } catch (err: any) {
-    console.warn('[authApi] verifyOtp error, falling back:', err.message);
-    // Offline / Mock fallback if network fails
-    const isDriver = role === 'DRIVER';
-    return {
-      success: true,
-      token: `kgo_offline_${Date.now()}`,
-      user: {
-        id: isDriver ? 'drv_kl_108' : 'usr_kl_001',
-        name: fullName || (isDriver ? 'Suresh Pillai' : 'Arun Kumar'),
-        phone: mobileNumber.startsWith('+91') ? mobileNumber : `+91 ${mobileNumber}`,
-        role: role,
-        avatar: isDriver
-          ? 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=150&q=80'
-          : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
-        rating: isDriver ? 4.94 : 4.88,
-        totalRides: isDriver ? 1420 : 34,
-        isOnline: isDriver ? true : undefined,
-      },
-    };
+  const isObject = typeof target === 'object' && target !== null;
+  const rawMobile = isObject ? target.mobileNumber : target;
+  const rawEmail = isObject ? target.email : undefined;
+  const otp = isObject ? target.otp : code || '';
+  const role = (isObject ? target.role : defaultRole) || defaultRole;
+  const fullName = isObject ? target.fullName : defaultName;
+  const mode = isObject && target.mode ? target.mode : 'LOGIN';
+
+  const requestBody: any = {
+    mode: mode,
+    otp: otp.trim(),
+    role: role,
+    full_name: fullName,
+  };
+  const reqId = isObject ? (target.requestId || target.request_id) : undefined;
+  if (reqId) {
+    requestBody.request_id = reqId.trim();
   }
+  if (rawEmail) {
+    requestBody.email = rawEmail.trim().toLowerCase();
+  } else if (rawMobile) {
+    requestBody.mobile_number = rawMobile.trim();
+  }
+
+  const res = await fetch(`${API_BASE}/auth/verify-otp/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(requestBody),
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok || !data.success) {
+    const errorMsg =
+      data.message ||
+      data.detail ||
+      (typeof data === 'object' ? Object.values(data).flat().join(' ') : 'OTP verification failed');
+    throw new Error(errorMsg);
+  }
+
+  // Store token for subsequent authenticated API calls
+  if (data.token) {
+    setAuthToken(data.token);
+  }
+
+  return data;
 };
 
 export const fetchUserProfileApi = async (
   mobileNumber?: string,
-  userId?: string
+  userId?: string,
+  email?: string
 ): Promise<User | null> => {
   try {
-    const query = mobileNumber
-      ? `mobile_number=${encodeURIComponent(mobileNumber)}`
-      : userId
-      ? `user_id=${encodeURIComponent(userId)}`
-      : '';
-    const res = await fetch(`${API_BASE}/auth/profile/?${query}`);
+    const params = new URLSearchParams();
+    if (mobileNumber) params.append('mobile_number', mobileNumber);
+    if (userId) params.append('user_id', userId);
+    if (email) params.append('email', email);
+
+    const headers: Record<string, string> = {};
+    const token = getAuthToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const query = params.toString() ? `?${params.toString()}` : '';
+    const res = await fetch(`${API_BASE}/auth/profile/${query}`, {
+      headers,
+    });
     if (!res.ok) return null;
     const data = await res.json();
     return {
       id: data.id,
       name: data.name,
       phone: data.phone,
+      email: data.email,
       role: data.role,
       avatar: data.avatar,
       rating: 4.88,
@@ -140,19 +193,32 @@ export const fetchUserProfileApi = async (
 };
 
 export const updateUserProfileApi = async (
-  mobileNumber: string,
+  identifier: { mobileNumber?: string; email?: string } | string,
   fullName?: string,
   defaultPaymentMethod?: string
 ): Promise<boolean> => {
   try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const token = getAuthToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const body: any = {
+      full_name: fullName,
+      default_payment_method: defaultPaymentMethod,
+    };
+    if (typeof identifier === 'object') {
+      if (identifier.mobileNumber) body.mobile_number = identifier.mobileNumber;
+      if (identifier.email) body.email = identifier.email;
+    } else {
+      body.mobile_number = identifier;
+    }
+
     const res = await fetch(`${API_BASE}/auth/profile/`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        mobile_number: mobileNumber,
-        full_name: fullName,
-        default_payment_method: defaultPaymentMethod,
-      }),
+      headers,
+      body: JSON.stringify(body),
     });
     return res.ok;
   } catch (err) {

@@ -29,7 +29,7 @@ const CustomerHomePage: React.FC = () => {
           <CustomerHomeView
             userName={user?.name}
             userAvatar={user?.avatar}
-            onToggleRole={toggleRole}
+            onToggleRole={user?.role === 'DRIVER' ? toggleRole : undefined}
             onBookingStateChange={setIsBookingActive}
           />
         );
@@ -39,7 +39,7 @@ const CustomerHomePage: React.FC = () => {
         return (
           <CustomerProfileView
             onLogout={logout}
-            onToggleRole={toggleRole}
+            onToggleRole={user?.role === 'DRIVER' ? toggleRole : undefined}
             currentRole={user?.role}
           />
         );
@@ -48,7 +48,7 @@ const CustomerHomePage: React.FC = () => {
           <CustomerHomeView
             userName={user?.name}
             userAvatar={user?.avatar}
-            onToggleRole={toggleRole}
+            onToggleRole={user?.role === 'DRIVER' ? toggleRole : undefined}
             onBookingStateChange={setIsBookingActive}
           />
         );

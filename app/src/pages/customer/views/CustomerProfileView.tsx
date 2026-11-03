@@ -8,12 +8,13 @@ import {
   Modal,
   TextInput,
   Switch,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Typography, Icon, Button, Badge } from '../../../components/atoms';
 import { Colors, Spacing, Radii, Shadows } from '../../../constants/theme';
-import { customerData } from '../../../data';
 import { useAuth } from '../../../hooks/useAuth';
+import { apiGet } from '../../../services/apiClient';
 
 interface CustomerProfileViewProps {
   onLogout?: () => void;
@@ -51,9 +52,39 @@ const CustomerProfileView: React.FC<CustomerProfileViewProps> = ({
   onToggleRole,
   currentRole,
 }) => {
-  const { user, updateProfile } = useAuth();
-  const [userName, setUserName] = useState<string>(user?.name || 'Arun Kumar');
-  const [userPhone, setUserPhone] = useState<string>(user?.phone || '+91 98470 12345');
+  const { user, updateProfile, logout } = useAuth();
+  const [savedLocations, setSavedLocations] = useState<any[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    apiGet<any[]>('/customer/locations/', []).then((res) => {
+      if (isMounted && res.data) {
+        setSavedLocations(res.data);
+      }
+    });
+    return () => { isMounted = false; };
+  }, []);
+
+  const handleLogout = () => {
+    const performLogout = onLogout || logout;
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined') {
+        const confirmed = window.confirm('Are you sure you want to log out of KeralaGO?');
+        if (confirmed) {
+          performLogout();
+        }
+      } else {
+        performLogout();
+      }
+    } else {
+      Alert.alert('Log Out', 'Are you sure you want to log out of KeralaGO?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Log Out', style: 'destructive', onPress: performLogout },
+      ]);
+    }
+  };
+  const [userName, setUserName] = useState<string>(user?.name || '');
+  const [userPhone, setUserPhone] = useState<string>(user?.phone || '');
   const [editModalVisible, setEditModalVisible] = useState<boolean>(false);
   const [editNameInput, setEditNameInput] = useState<string>(userName);
   const [editPhoneInput, setEditPhoneInput] = useState<string>(userPhone);
@@ -296,23 +327,16 @@ const CustomerProfileView: React.FC<CustomerProfileViewProps> = ({
         )}
 
         {/* ── Log Out Button ── */}
-        {onLogout && (
-          <TouchableOpacity
-            style={styles.logoutBtn}
-            onPress={() => {
-              Alert.alert('Log Out', 'Are you sure you want to log out of KeralaGO?', [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Log Out', style: 'destructive', onPress: onLogout },
-              ]);
-            }}
-            activeOpacity={0.7}
-          >
-            <Icon library="Ionicons" name="log-out-outline" size={19} color="#DC2626" />
-            <Typography variant="body2" weight="semiBold" color="#DC2626" style={{ marginLeft: 8 }}>
-              Log Out
-            </Typography>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={styles.logoutBtn}
+          onPress={handleLogout}
+          activeOpacity={0.7}
+        >
+          <Icon library="Ionicons" name="log-out-outline" size={19} color="#DC2626" />
+          <Typography variant="body2" weight="semiBold" color="#DC2626" style={{ marginLeft: 8 }}>
+            Log Out
+          </Typography>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* ── Edit Profile Modal ── */}
@@ -377,21 +401,30 @@ const CustomerProfileView: React.FC<CustomerProfileViewProps> = ({
               </TouchableOpacity>
             </View>
 
-            {customerData.savedLocations.map((item) => (
-              <View key={item.id} style={styles.addressRow}>
-                <View style={styles.addressIconWrap}>
-                  <Icon library="Ionicons" name="location-sharp" size={18} color="#0F4A2B" />
-                </View>
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Typography variant="body2" weight="bold" color="#0F172A">
-                    {item.label} ({item.title})
-                  </Typography>
-                  <Typography variant="xs" color="#64748B">
-                    {item.subtitle}
-                  </Typography>
-                </View>
+            {savedLocations.length === 0 ? (
+              <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+                <Icon library="Ionicons" name="location-outline" size={32} color="#94A3B8" />
+                <Typography variant="body2" color="#64748B" style={{ marginTop: 8 }}>
+                  No saved addresses yet
+                </Typography>
               </View>
-            ))}
+            ) : (
+              savedLocations.map((item) => (
+                <View key={item.id} style={styles.addressRow}>
+                  <View style={styles.addressIconWrap}>
+                    <Icon library="Ionicons" name="location-sharp" size={18} color="#0F4A2B" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Typography variant="body2" weight="bold" color="#0F172A">
+                      {item.label} ({item.title})
+                    </Typography>
+                    <Typography variant="xs" color="#64748B">
+                      {item.subtitle || item.address}
+                    </Typography>
+                  </View>
+                </View>
+              ))
+            )}
 
             <View style={{ marginTop: 16 }}>
               <Button

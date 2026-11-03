@@ -150,6 +150,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Django REST Framework
 REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'accounts.authentication.JWTAuthentication',
+    ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
     ],
@@ -157,3 +160,30 @@ REST_FRAMEWORK = {
 
 # CORS settings for Expo / React Native frontend communication
 CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+# Gmail SMTP Email Authentication Configuration
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.getenv('EMAIL_USER', 'couplespaceofficial@gmail.com')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_PASS', 'vjxn ctio ylzr zuyj')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', f"KeralaGO <{EMAIL_HOST_USER}>")
+
+# MSG91 Cloud Communication Integration Settings
+MSG91_AUTH_KEY = os.getenv('MSG91_AUTH_KEY', '')
+MSG91_WIDGET_ID = os.getenv('MSG91_WIDGET_ID', '')
+MSG91_OTP_TEMPLATE_ID = os.getenv('MSG91_OTP_TEMPLATE_ID', '')
+MSG91_SENDER_ID = os.getenv('MSG91_SENDER_ID', 'KRLAGO')
+
