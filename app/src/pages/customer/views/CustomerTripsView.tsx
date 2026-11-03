@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -7,7 +7,9 @@ import {
   TextInput,
   Alert,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
+import { fetchCustomerTrips } from '../../../services/tripService';
 import { ListScreenTemplate, ModalTemplate } from '../../../components/templates';
 import { NavigationHeader } from '../../../components/organisms';
 import { SegmentTabs } from '../../../components/molecules';
@@ -19,7 +21,6 @@ import {
   Divider,
 } from '../../../components/atoms';
 import { Colors, Spacing, Radii, Shadows } from '../../../constants/theme';
-import { customerData } from '../../../data';
 
 export interface TripItem {
   id: string;
@@ -61,27 +62,44 @@ const CustomerTripsView: React.FC = () => {
   const [reportReason, setReportReason] = useState<string>(REPORT_REASONS[0]);
   const [reportDetails, setReportDetails] = useState<string>('');
 
-  // Enriched trip data for modal detail popup
-  const enrichedTrips: TripItem[] = useMemo(() => {
-    return customerData.tripsHistory.map((trip, idx) => {
-      const plates = ['KL-07-CD-4512', 'KL-44-A-1204', 'KL-01-BK-8890', 'KL-07-AL-6031'];
-      const ratings = [4.9, 4.8, 5.0, 4.7];
-      const payments = ['UPI (GPay)', 'Cash on Trip', 'KeralaGO Wallet', 'UPI (PhonePe)'];
+  const [trips, setTrips] = useState<TripItem[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-      return {
-        ...trip,
-        status: trip.status as 'completed' | 'cancelled',
-        carPlate: plates[idx % plates.length],
-        driverRating: ratings[idx % ratings.length],
-        paymentMethod: payments[idx % payments.length],
-      };
-    });
-  }, []);
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoading(true);
+    fetchCustomerTrips(selectedFilter as any)
+      .then((res) => {
+        if (isMounted) {
+          const list: TripItem[] = (res.trips || []).map((t: any) => ({
+            id: t.id,
+            timeAgo: t.timeAgo || 'Recently',
+            pickup: t.pickup || 'Pickup Point',
+            dropoff: t.dropoff || 'Destination',
+            fare: t.fare || '₹0',
+            status: (t.status === 'cancelled' ? 'cancelled' : 'completed') as 'completed' | 'cancelled',
+            vehicleType: t.vehicleType || 'KeralaGO Ride',
+            driverName: t.driverName || 'Driver',
+            distance: t.distance || '0 km',
+            duration: t.duration || '0 min',
+            driverRating: t.driverRating,
+            carPlate: t.carPlate || 'Pending',
+            paymentMethod: t.paymentMethod || 'UPI',
+          }));
+          setTrips(list);
+          setIsLoading(false);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setTrips([]);
+          setIsLoading(false);
+        }
+      });
+    return () => { isMounted = false; };
+  }, [selectedFilter]);
 
-  const filteredTrips = useMemo(() => {
-    if (selectedFilter === 'all') return enrichedTrips;
-    return enrichedTrips.filter((trip) => trip.status === selectedFilter);
-  }, [enrichedTrips, selectedFilter]);
+  const filteredTrips = trips;
 
   const handleDownloadInvoice = (tripId: string) => {
     Alert.alert(
@@ -121,7 +139,15 @@ const CustomerTripsView: React.FC = () => {
       }
     >
       <View style={styles.listContainer}>
-        {filteredTrips.map((trip) => {
+        {isLoading && (
+          <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Typography variant="body2" color="#64748B" style={{ marginTop: 10 }}>
+              Loading your trips...
+            </Typography>
+          </View>
+        )}
+        {!isLoading && filteredTrips.map((trip) => {
           const isCompleted = trip.status === 'completed';
 
           return (
@@ -200,7 +226,7 @@ const CustomerTripsView: React.FC = () => {
           );
         })}
 
-        {filteredTrips.length === 0 && (
+        {!isLoading && filteredTrips.length === 0 && (
           <View style={styles.emptyState}>
             <Icon library="Ionicons" name="receipt-outline" size={38} color="#94A3B8" />
             <Typography variant="body1" color="#64748B" weight="medium" align="center" style={{ marginTop: 10 }}>

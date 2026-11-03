@@ -54,8 +54,10 @@ class User(AbstractBaseUser, PermissionsMixin):
         editable=False
     )
     mobile_number = models.CharField(
-        max_length=15,
+        max_length=20,
         unique=True,
+        null=True,
+        blank=True,
         db_index=True,
         help_text="Primary phone number (E.164 or national format) used for OTP login"
     )
@@ -67,7 +69,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(
         blank=True,
         null=True,
-        help_text="Optional user email address"
+        unique=True,
+        db_index=True,
+        help_text="Primary user email address for email-based authentication"
     )
     role = models.CharField(
         max_length=10,
@@ -138,8 +142,23 @@ class OTPChallenge(models.Model):
         editable=False
     )
     mobile_number = models.CharField(
-        max_length=15,
+        max_length=20,
+        blank=True,
+        default="",
         db_index=True
+    )
+    email = models.EmailField(
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text="Email address for email-based OTP challenges"
+    )
+    request_id = models.CharField(
+        max_length=128,
+        blank=True,
+        default="",
+        db_index=True,
+        help_text="MSG91 Widget reqId or gateway request identifier"
     )
     purpose = models.CharField(
         max_length=20,
@@ -148,6 +167,8 @@ class OTPChallenge(models.Model):
     )
     code_hash = models.CharField(
         max_length=255,
+        blank=True,
+        default="",
         help_text="Hashed OTP code"
     )
     expires_at = models.DateTimeField()

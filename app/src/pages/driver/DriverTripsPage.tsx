@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
+import { apiGet } from '../../services/apiClient';
+import { Icon } from '../../components/atoms';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Typography,
@@ -106,11 +109,32 @@ const DriverTripsPage: React.FC<DriverTripsPageProps> = ({
   tabs = [],
 }) => {
   const [selectedStatus, setSelectedStatus] = useState<string>('completed');
+  const [driverTrips, setDriverTrips] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const handleTripPress = (trip: TripRecord) => {
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoading(true);
+    apiGet<any[]>('/driver/trips/', []).then((res) => {
+      if (isMounted) {
+        setDriverTrips(res.data || []);
+        setIsLoading(false);
+      }
+    }).catch(() => {
+      if (isMounted) {
+        setDriverTrips([]);
+        setIsLoading(false);
+      }
+    });
+    return () => { isMounted = false; };
+  }, []);
+
+  const filtered = driverTrips.filter((t) => (t.status || 'completed').toLowerCase() === selectedStatus);
+
+  const handleTripPress = (trip: any) => {
     Alert.alert(
       'Trip Summary',
-      `Route: ${trip.pickup} → ${trip.dropoff}\nTime: ${trip.time}\nFare: ${trip.fare}\nPayment: Cash / UPI Verified`,
+      `Route: ${trip.pickup} → ${trip.dropoff}\nEarnings: ${trip.earnings}\nStatus: ${trip.status}`,
     );
   };
 
@@ -139,70 +163,39 @@ const DriverTripsPage: React.FC<DriverTripsPageProps> = ({
           />
         </View>
 
-        {selectedStatus === 'completed' ? (
-          <>
-            {/* ── Section: Today ── */}
-            <View style={styles.sectionHeaderRow}>
-              <Typography variant="body1" weight="bold" color={Colors.textPrimary}>
-                Today
-              </Typography>
-              <Typography variant="caption" color={Colors.textSecondary}>
-                12 trips <Typography variant="caption" weight="bold" color={Colors.textPrimary}>₹1,240</Typography>
-              </Typography>
-            </View>
-
-            <Card style={styles.tripsCard}>
-              {TODAY_TRIPS.map((trip, idx) => (
-                <TripHistoryItem
-                  key={trip.id}
-                  variant="compact"
-                  timeText={trip.time}
-                  dotColor={trip.dotColor}
-                  pickup={trip.pickup}
-                  dropoff={trip.dropoff}
-                  fare={trip.fare}
-                  showDivider={idx < TODAY_TRIPS.length - 1}
-                  onPress={() => handleTripPress(trip)}
-                />
-              ))}
-            </Card>
-
-            {/* ── Section: Yesterday ── */}
-            <View style={[styles.sectionHeaderRow, { marginTop: Spacing.xl }]}>
-              <Typography variant="body1" weight="bold" color={Colors.textPrimary}>
-                Yesterday
-              </Typography>
-              <Typography variant="caption" color={Colors.textSecondary}>
-                14 trips <Typography variant="caption" weight="bold" color={Colors.textPrimary}>₹1,360</Typography>
-              </Typography>
-            </View>
-
-            <Card style={styles.tripsCard}>
-              {YESTERDAY_TRIPS.map((trip, idx) => (
-                <TripHistoryItem
-                  key={trip.id}
-                  variant="compact"
-                  timeText={trip.time}
-                  dotColor={trip.dotColor}
-                  pickup={trip.pickup}
-                  dropoff={trip.dropoff}
-                  fare={trip.fare}
-                  showDivider={idx < YESTERDAY_TRIPS.length - 1}
-                  onPress={() => handleTripPress(trip)}
-                />
-              ))}
-            </Card>
-          </>
-        ) : (
-          /* Empty Cancelled State */
-          <View style={styles.emptyContainer}>
-            <Typography variant="body1" weight="bold" color={Colors.textPrimary}>
-              No cancelled trips today
-            </Typography>
-            <Typography variant="caption" color={Colors.textSecondary} style={{ marginTop: 4 }}>
-              Great job maintaining a 100% completion rate!
+        {isLoading ? (
+          <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Typography variant="body2" color={Colors.textMuted} style={{ marginTop: 10 }}>
+              Loading driver trips...
             </Typography>
           </View>
+        ) : filtered.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Icon library="Ionicons" name="car-outline" size={44} color={Colors.textMuted} />
+            <Typography variant="h3" weight="bold" color={Colors.textPrimary} style={{ marginTop: 14 }}>
+              No {selectedStatus === 'completed' ? 'Completed' : 'Cancelled'} Trips
+            </Typography>
+            <Typography variant="body2" color={Colors.textMuted} align="center" style={{ marginTop: 6, maxWidth: 260 }}>
+              You don't have any {selectedStatus} rides logged under this driver account.
+            </Typography>
+          </View>
+        ) : (
+          <Card style={styles.tripsCard}>
+            {filtered.map((trip, idx) => (
+              <TripHistoryItem
+                key={trip.id}
+                variant="compact"
+                timeText={trip.timeAgo || 'Recently'}
+                dotColor={trip.status === 'cancelled' ? '#EF4444' : '#10B981'}
+                pickup={trip.pickup}
+                dropoff={trip.dropoff}
+                fare={trip.earnings || '₹0'}
+                showDivider={idx < filtered.length - 1}
+                onPress={() => handleTripPress(trip)}
+              />
+            ))}
+          </Card>
         )}
       </ScrollView>
 

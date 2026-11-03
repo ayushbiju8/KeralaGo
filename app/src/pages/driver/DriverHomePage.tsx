@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { apiGet } from '../../services/apiClient';
 import {
   View,
   StyleSheet,
@@ -54,6 +55,17 @@ const DriverHomePage: React.FC<DriverHomePageProps> = ({
   const activeTab = controlledActiveTab ?? internalTab;
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [showIncomingModal, setShowIncomingModal] = useState<boolean>(false);
+  const [dashboardData, setDashboardData] = useState<any>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    apiGet<any>('/driver/dashboard/', null).then((res) => {
+      if (isMounted && res.data) {
+        setDashboardData(res.data);
+      }
+    });
+    return () => { isMounted = false; };
+  }, []);
 
   const handleTabSelect = (tabId: string) => {
     setInternalTab(tabId);
@@ -221,19 +233,16 @@ const DriverHomePage: React.FC<DriverHomePageProps> = ({
             <Icon library="Ionicons" name="chevron-forward" size={22} color="#16A34A" />
           </TouchableOpacity>
 
-          {/* ── Summary 3-Column Card (12 Trips / ₹1,240 / 4.8 Rating) ── */}
+          {/* ── Summary 3-Column Card (Real Live Stats) ── */}
           <Card style={styles.summaryCard}>
             {/* Column 1: Trips today */}
             <View style={styles.summaryCol}>
               <Icon library="Ionicons" name="car-sport" size={22} color="#10B981" />
               <Typography variant="h2" weight="bold" color={Colors.textPrimary} style={{ marginTop: 4 }}>
-                12
+                {dashboardData?.stats?.completedTrips ?? 0}
               </Typography>
               <Typography variant="caption" color={Colors.textSecondary} style={{ marginTop: 2 }}>
                 Trips today
-              </Typography>
-              <Typography variant="caption" weight="bold" color="#10B981" style={{ marginTop: 2 }}>
-                ↑ +20%
               </Typography>
             </View>
 
@@ -247,13 +256,10 @@ const DriverHomePage: React.FC<DriverHomePageProps> = ({
                 </Typography>
               </View>
               <Typography variant="h2" weight="bold" color={Colors.textPrimary} style={{ marginTop: 4 }}>
-                ₹1,240
+                {dashboardData?.stats?.todayEarnings ?? '₹0'}
               </Typography>
               <Typography variant="caption" color={Colors.textSecondary} style={{ marginTop: 2 }}>
                 Earnings today
-              </Typography>
-              <Typography variant="caption" weight="bold" color="#10B981" style={{ marginTop: 2 }}>
-                ↑ +18%
               </Typography>
             </View>
 
@@ -263,13 +269,10 @@ const DriverHomePage: React.FC<DriverHomePageProps> = ({
             <View style={styles.summaryCol}>
               <Icon library="Ionicons" name="star" size={22} color="#10B981" />
               <Typography variant="h2" weight="bold" color={Colors.textPrimary} style={{ marginTop: 4 }}>
-                4.8
+                {dashboardData?.driver?.rating ? Number(dashboardData.driver.rating).toFixed(1) : '—'}
               </Typography>
               <Typography variant="caption" color={Colors.textSecondary} style={{ marginTop: 2 }}>
                 Rating
-              </Typography>
-              <Typography variant="xs" color={Colors.textMuted} style={{ marginTop: 2 }}>
-                (128 reviews)
               </Typography>
             </View>
           </Card>

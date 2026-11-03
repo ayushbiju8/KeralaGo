@@ -19,6 +19,12 @@ from .views import (
     toggle_driver_duty,
     submit_sos,
     submit_support_ticket,
+    update_ride_status,
+    get_active_ride,
+    driver_trips,
+    driver_earnings,
+    driver_vehicle_details,
+    update_driver_location,
 )
 
 urlpatterns = [
@@ -41,7 +47,9 @@ urlpatterns = [
     path('rides/estimate-fare/', estimate_fare, name='estimate_fare'),
     path('rides/apply-coupon/', apply_coupon, name='apply_coupon'),
     path('rides/request/', request_ride, name='request_ride'),
+    path('rides/active/', get_active_ride, name='active_ride'),
     path('rides/<str:ride_id>/', ride_detail, name='ride_detail'),
+    path('rides/<str:ride_id>/update-status/', update_ride_status, name='update_ride_status'),
     path('rides/<str:ride_id>/cancel/', cancel_ride, name='cancel_ride'),
     path('coupons/', list_coupons, name='list_coupons'),
 
@@ -51,6 +59,10 @@ urlpatterns = [
     # Driver Partner Suite
     path('driver/dashboard/', driver_dashboard, name='driver_dashboard'),
     path('driver/duty/toggle/', toggle_driver_duty, name='toggle_driver_duty'),
+    path('driver/trips/', driver_trips, name='driver_trips'),
+    path('driver/earnings/', driver_earnings, name='driver_earnings'),
+    path('driver/vehicle/', driver_vehicle_details, name='driver_vehicle_details'),
+    path('driver/location/update/', update_driver_location, name='update_driver_location'),
 
     # Safety & Incident Support
     path('support/sos/', submit_sos, name='submit_sos'),

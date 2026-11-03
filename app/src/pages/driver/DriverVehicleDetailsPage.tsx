@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -6,7 +6,9 @@ import {
   Image,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
+import { apiGet } from '../../services/apiClient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Typography,
@@ -24,8 +26,34 @@ export interface DriverVehicleDetailsPageProps {
 const DriverVehicleDetailsPage: React.FC<DriverVehicleDetailsPageProps> = ({
   onBack,
 }) => {
+  const [vehicleData, setVehicleData] = useState<any>(null);
+  const [complianceData, setComplianceData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    apiGet<any>('/driver/vehicle/', null).then((res) => {
+      if (isMounted) {
+        if (res.data && res.data.vehicle) {
+          setVehicleData(res.data.vehicle);
+          setComplianceData(res.data.compliance);
+        } else {
+          setVehicleData(null);
+          setComplianceData(null);
+        }
+        setIsLoading(false);
+      }
+    }).catch(() => {
+      if (isMounted) {
+        setVehicleData(null);
+        setIsLoading(false);
+      }
+    });
+    return () => { isMounted = false; };
+  }, []);
+
   const handleEditPress = () => {
-    Alert.alert('Edit Vehicle Information', 'To update RC or vehicle details, submit verification documents to Kerala MVD portal.');
+    Alert.alert('Vehicle Documents', 'To register or update vehicle details, submit verification documents to Kerala MVD portal.');
   };
 
   return (
@@ -38,7 +66,7 @@ const DriverVehicleDetailsPage: React.FC<DriverVehicleDetailsPageProps> = ({
           rightActions={
             <TouchableOpacity onPress={handleEditPress} activeOpacity={0.7} style={styles.editBtn}>
               <Typography variant="body2" weight="bold" color={Colors.primary}>
-                Edit
+                Add/Edit
               </Typography>
             </TouchableOpacity>
           }
@@ -49,69 +77,98 @@ const DriverVehicleDetailsPage: React.FC<DriverVehicleDetailsPageProps> = ({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* ── Top Vehicle Showcase ── */}
-        <View style={styles.vehicleShowcase}>
-          <Image
-            source={require('../../../assets/images/white_sedan.jpg')}
-            style={styles.vehicleImage}
-            resizeMode="contain"
-          />
+        {isLoading ? (
+          <View style={{ paddingVertical: 60, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Typography variant="body2" color={Colors.textMuted} style={{ marginTop: 12 }}>
+              Loading vehicle details...
+            </Typography>
+          </View>
+        ) : !vehicleData ? (
+          <View style={{ paddingVertical: 60, alignItems: 'center', paddingHorizontal: 24 }}>
+            <Icon library="Ionicons" name="car-outline" size={54} color={Colors.textMuted} />
+            <Typography variant="h3" weight="bold" color={Colors.textPrimary} style={{ marginTop: 16 }}>
+              No Vehicle Registered
+            </Typography>
+            <Typography variant="body2" color={Colors.textMuted} align="center" style={{ marginTop: 8, lineHeight: 20 }}>
+              You do not have any registered vehicle under this account. Please upload your RC and vehicle documents to become a registered partner.
+            </Typography>
+            <TouchableOpacity
+              onPress={handleEditPress}
+              style={{
+                marginTop: 24,
+                backgroundColor: Colors.primary,
+                paddingVertical: 12,
+                paddingHorizontal: 24,
+                borderRadius: 8,
+              }}
+            >
+              <Typography variant="body2" weight="bold" color={Colors.white}>
+                Register a Vehicle
+              </Typography>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            {/* ── Top Vehicle Showcase ── */}
+            <View style={styles.vehicleShowcase}>
+              <Typography variant="h3" weight="bold" color={Colors.textPrimary} align="center" style={styles.vehicleName}>
+                {vehicleData.make} {vehicleData.model} - {vehicleData.color}
+              </Typography>
+              <Typography variant="body1" weight="bold" color={Colors.textSecondary} align="center">
+                {vehicleData.plate}
+              </Typography>
+            </View>
 
-          <Typography variant="h3" weight="bold" color={Colors.textPrimary} align="center" style={styles.vehicleName}>
-            Maruti Swift - White
-          </Typography>
-          <Typography variant="body1" weight="bold" color={Colors.textSecondary} align="center">
-            KL 07 AB 1234
-          </Typography>
-        </View>
-
-        {/* ── Specifications & Legal Verification Status Card with InfoRow ── */}
-        <Card style={styles.detailsCard}>
-          <InfoRow label="Vehicle Type" value="Car" rightContent="text" />
-          <InfoRow label="Model" value="Maruti Swift" rightContent="text" />
-          <InfoRow label="Color" value="White" rightContent="text" />
-          <InfoRow
-            label="Registration Number"
-            value="KL 07 AB 1234"
-            rightContent="text"
-            valueColor={Colors.textPrimary}
-          />
-          <InfoRow label="Year" value="2022" rightContent="text" />
-          <InfoRow
-            label="RC Status"
-            rightNode={
-              <View style={styles.verifiedBadge}>
-                <Icon library="Ionicons" name="checkmark-circle" size={15} color="#166534" style={{ marginRight: 3 }} />
-                <Typography variant="xs" weight="bold" color="#166534">
-                  Verified
-                </Typography>
-              </View>
-            }
-          />
-          <InfoRow
-            label="Insurance Status"
-            rightNode={
-              <View style={styles.verifiedBadge}>
-                <Icon library="Ionicons" name="checkmark-circle" size={15} color="#166534" style={{ marginRight: 3 }} />
-                <Typography variant="xs" weight="bold" color="#166534">
-                  Verified
-                </Typography>
-              </View>
-            }
-          />
-          <InfoRow
-            label="PUC Status"
-            rightNode={
-              <View style={styles.verifiedBadge}>
-                <Icon library="Ionicons" name="checkmark-circle" size={15} color="#166534" style={{ marginRight: 3 }} />
-                <Typography variant="xs" weight="bold" color="#166534">
-                  Verified
-                </Typography>
-              </View>
-            }
-            showDivider={false}
-          />
-        </Card>
+            {/* ── Specifications & Legal Verification Status Card with InfoRow ── */}
+            <Card style={styles.detailsCard}>
+              <InfoRow label="Vehicle Category" value={vehicleData.category || 'Vehicle'} rightContent="text" />
+              <InfoRow label="Model" value={`${vehicleData.make} ${vehicleData.model}`} rightContent="text" />
+              <InfoRow label="Color" value={vehicleData.color} rightContent="text" />
+              <InfoRow
+                label="Registration Number"
+                value={vehicleData.plate}
+                rightContent="text"
+                valueColor={Colors.textPrimary}
+              />
+              <InfoRow label="Year" value={String(vehicleData.year || '')} rightContent="text" />
+              <InfoRow
+                label="RC Status"
+                rightNode={
+                  <View style={styles.verifiedBadge}>
+                    <Icon library="Ionicons" name="checkmark-circle" size={15} color="#166534" style={{ marginRight: 3 }} />
+                    <Typography variant="xs" weight="bold" color="#166534">
+                      {complianceData?.rcStatus || 'Verified'}
+                    </Typography>
+                  </View>
+                }
+              />
+              <InfoRow
+                label="Insurance Status"
+                rightNode={
+                  <View style={styles.verifiedBadge}>
+                    <Icon library="Ionicons" name="checkmark-circle" size={15} color="#166534" style={{ marginRight: 3 }} />
+                    <Typography variant="xs" weight="bold" color="#166534">
+                      {complianceData?.insuranceStatus || 'Verified'}
+                    </Typography>
+                  </View>
+                }
+              />
+              <InfoRow
+                label="PUC Status"
+                rightNode={
+                  <View style={styles.verifiedBadge}>
+                    <Icon library="Ionicons" name="checkmark-circle" size={15} color="#166534" style={{ marginRight: 3 }} />
+                    <Typography variant="xs" weight="bold" color="#166534">
+                      {complianceData?.pollutionStatus || 'Verified'}
+                    </Typography>
+                  </View>
+                }
+                showDivider={false}
+              />
+            </Card>
+          </>
+        )}
       </ScrollView>
     </View>
   );

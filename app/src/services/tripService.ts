@@ -32,25 +32,25 @@ export interface CustomerDashboardResponse {
 }
 
 export async function fetchCustomerTrips(status: 'all' | 'completed' | 'cancelled' = 'all'): Promise<{ trips: BackendTripItem[]; isLiveDb: boolean }> {
-  const result = await apiGet<BackendTripItem[]>(`/customer/trips/?status=${status}`, customerData.tripsHistory as BackendTripItem[]);
+  const result = await apiGet<BackendTripItem[]>(`/customer/trips/?status=${status}`, []);
   return {
-    trips: result.data || (customerData.tripsHistory as BackendTripItem[]),
+    trips: result.data || [],
     isLiveDb: result.fromDb,
   };
 }
 
 export async function fetchCustomerDashboard(): Promise<{ data: CustomerDashboardResponse | null; isLiveDb: boolean }> {
-  const fallback: CustomerDashboardResponse = {
-    profile: customerData.customerProfile,
-    wallet: customerData.walletData,
-    savedLocations: customerData.savedLocations,
-    categories: customerData.serviceCategories,
-    trips: customerData.tripsHistory as BackendTripItem[],
-    source: 'Local Fallback',
+  const emptyDashboard: CustomerDashboardResponse = {
+    profile: null,
+    wallet: { balance: 0, cashbackEarned: 0, greenEcoKm: 0, paymentOptions: [], transactions: [] },
+    savedLocations: [],
+    categories: [],
+    trips: [],
+    source: 'Live Database',
   };
-  const result = await apiGet<CustomerDashboardResponse>('/customer/dashboard/', fallback);
+  const result = await apiGet<CustomerDashboardResponse>('/customer/dashboard/', emptyDashboard);
   return {
-    data: result.data || fallback,
+    data: result.data || emptyDashboard,
     isLiveDb: result.fromDb,
   };
 }
@@ -114,6 +114,33 @@ export async function fetchDriverDashboard() {
 
 export async function toggleDriverDuty() {
   return apiPost<{ success: boolean; isOnline: boolean; status: string }>('/driver/duty/toggle/', {});
+}
+
+export async function updateRideStatus(
+  rideId: string,
+  payload: { status: 'DRIVER_ARRIVED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'; pin?: string; distance_km?: number; duration_minutes?: number }
+) {
+  return apiPost<any>(`/rides/${rideId}/update-status/`, payload);
+}
+
+export async function fetchActiveRide() {
+  return apiGet<{ activeRide: any | null }>('/rides/active/', { activeRide: null });
+}
+
+export async function fetchDriverTrips() {
+  return apiGet<any[]>('/driver/trips/', []);
+}
+
+export async function fetchDriverEarnings() {
+  return apiGet<any>('/driver/earnings/', null);
+}
+
+export async function fetchDriverVehicleDetails() {
+  return apiGet<any>('/driver/vehicle/', null);
+}
+
+export async function updateDriverLocation(latitude: number, longitude: number, accuracy: number = 5.0) {
+  return apiPost<any>('/driver/location/update/', { latitude, longitude, accuracy });
 }
 
 export async function checkBackendHealth(): Promise<boolean> {

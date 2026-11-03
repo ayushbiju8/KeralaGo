@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { fetchCustomerDashboard } from '../../../services/tripService';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Typography,
@@ -12,24 +13,40 @@ import {
 import { PaymentOptionItem } from '../../../components/molecules';
 import { NavigationHeader } from '../../../components/organisms';
 import { Colors, Spacing, Radii } from '../../../constants/theme';
-import { customerData } from '../../../data';
+const DEFAULT_PAYMENT_OPTIONS = [
+  { id: 'upi', title: 'UPI (GPay, PhonePe, Paytm)', subtitle: 'Instant 0% transaction fee', iconName: 'flash-outline' },
+  { id: 'card', title: 'Credit / Debit Card', subtitle: 'Visa, MasterCard, RuPay', iconName: 'card-outline' },
+];
 
 const CustomerWalletView: React.FC = () => {
   const [selectedMethod, setSelectedMethod] = useState<string>('upi');
-  const [balance, setBalance] = useState<number>(customerData.walletData.balance);
+  const [balance, setBalance] = useState<number>(0);
+  const [cashbackEarned, setCashbackEarned] = useState<number>(0);
+  const [greenEcoKm, setGreenEcoKm] = useState<number>(0);
+  const [paymentOptions, setPaymentOptions] = useState<any[]>(DEFAULT_PAYMENT_OPTIONS);
+  const [transactions, setTransactions] = useState<any[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchCustomerDashboard().then((res) => {
+      if (isMounted && res.data && res.data.wallet) {
+        const w = res.data.wallet;
+        setBalance(typeof w.balance === 'number' ? w.balance : 0);
+        setCashbackEarned(typeof w.cashbackEarned === 'number' ? w.cashbackEarned : 0);
+        setGreenEcoKm(typeof w.greenEcoKm === 'number' ? w.greenEcoKm : 0);
+        if (Array.isArray(w.paymentOptions) && w.paymentOptions.length > 0) {
+          setPaymentOptions(w.paymentOptions);
+        }
+        if (Array.isArray(w.transactions)) {
+          setTransactions(w.transactions);
+        }
+      }
+    });
+    return () => { isMounted = false; };
+  }, []);
 
   const handleAddMoney = () => {
-    Alert.prompt
-      ? Alert.prompt(
-          'Add Money to Wallet',
-          'Enter amount in ₹ (e.g., 200, 500):',
-          (text) => {
-            const added = parseFloat(text) || 100;
-            setBalance((prev) => prev + added);
-            Alert.alert('Success! 🎉', `₹${added} added to your KeralaGO Wallet.`);
-          }
-        )
-      : (setBalance((prev) => prev + 250), Alert.alert('Success! 🎉', '₹250 added to your KeralaGO Wallet.'));
+    Alert.alert('Add Money to Wallet', 'UPI Top-Up gateway will open for KeralaGO Wallet.');
   };
 
   return (
@@ -64,12 +81,12 @@ const CustomerWalletView: React.FC = () => {
           <View style={styles.ecoCreditsRow}>
             <Badge
               variant="success"
-              label={`+₹${customerData.walletData.cashbackEarned.toFixed(0)} Cashback Earned`}
+              label={`+₹${cashbackEarned.toFixed(0)} Cashback Earned`}
               size="md"
             />
             <Badge
               variant="primary"
-              label={`${customerData.walletData.greenEcoKm} Green KM`}
+              label={`${greenEcoKm} Green KM`}
               size="md"
             />
           </View>
@@ -99,18 +116,18 @@ const CustomerWalletView: React.FC = () => {
         </Typography>
 
         <Card shadow="sm" radius="lg" style={styles.methodsCard}>
-          {customerData.walletData.paymentOptions.map((opt, index) => (
+          {paymentOptions.map((opt, index) => (
             <PaymentOptionItem
               key={opt.id}
               label={opt.title}
               subtitle={opt.subtitle}
-              iconName={opt.iconName}
+              iconName={opt.iconName || 'card-outline'}
               iconLibrary="Ionicons"
               iconColor={Colors.primary}
               iconBg={Colors.mintLight}
               selected={selectedMethod === opt.id}
               onSelect={() => setSelectedMethod(opt.id)}
-              showDivider={index < customerData.walletData.paymentOptions.length - 1}
+              showDivider={index < paymentOptions.length - 1}
             />
           ))}
         </Card>
@@ -121,36 +138,45 @@ const CustomerWalletView: React.FC = () => {
         </Typography>
 
         <Card shadow="sm" radius="lg" style={styles.transactionsCard}>
-          {customerData.walletData.transactions.map((tx, index) => (
-            <View key={tx.id}>
-              <View style={styles.txRow}>
-                <View style={[styles.txIconCircle, { backgroundColor: tx.isCredit ? Colors.mintLight : Colors.surface }]}>
-                  <Icon
-                    library="Ionicons"
-                    name={tx.isCredit ? 'arrow-down' : 'arrow-up'}
-                    size={16}
-                    color={tx.isCredit ? Colors.primary : Colors.textMuted}
-                  />
-                </View>
-                <View style={styles.txInfo}>
-                  <Typography variant="body2" weight="semiBold" color={Colors.textPrimary}>
-                    {tx.title}
-                  </Typography>
-                  <Typography variant="caption" color={Colors.textMuted}>
-                    {tx.date} • {tx.type}
-                  </Typography>
-                </View>
-                <Typography
-                  variant="body1"
-                  weight="bold"
-                  color={tx.isCredit ? Colors.primary : Colors.textPrimary}
-                >
-                  {tx.amount}
-                </Typography>
-              </View>
-              {index < customerData.walletData.transactions.length - 1 && <Divider spacing={4} />}
+          {transactions.length === 0 ? (
+            <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+              <Icon library="Ionicons" name="receipt-outline" size={32} color={Colors.textMuted} />
+              <Typography variant="body2" color={Colors.textMuted} style={{ marginTop: 8 }}>
+                No recent transactions
+              </Typography>
             </View>
-          ))}
+          ) : (
+            transactions.map((tx, index) => (
+              <View key={tx.id}>
+                <View style={styles.txRow}>
+                  <View style={[styles.txIconCircle, { backgroundColor: tx.isCredit ? Colors.mintLight : Colors.surface }]}>
+                    <Icon
+                      library="Ionicons"
+                      name={tx.isCredit ? 'arrow-down' : 'arrow-up'}
+                      size={16}
+                      color={tx.isCredit ? Colors.primary : Colors.textMuted}
+                    />
+                  </View>
+                  <View style={styles.txInfo}>
+                    <Typography variant="body2" weight="semiBold" color={Colors.textPrimary}>
+                      {tx.title}
+                    </Typography>
+                    <Typography variant="caption" color={Colors.textMuted}>
+                      {tx.date} • {tx.type}
+                    </Typography>
+                  </View>
+                  <Typography
+                    variant="body1"
+                    weight="bold"
+                    color={tx.isCredit ? Colors.primary : Colors.textPrimary}
+                  >
+                    {tx.amount}
+                  </Typography>
+                </View>
+                {index < transactions.length - 1 && <Divider spacing={4} />}
+              </View>
+            ))
+          )}
         </Card>
       </ScrollView>
     </View>
