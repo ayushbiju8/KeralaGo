@@ -167,15 +167,28 @@ const DriverHomePage: React.FC<DriverHomePageProps> = ({
             </Typography>
           </View>
 
-          {/* Right Notification Bell */}
-          <TouchableOpacity
-            style={styles.headerIconButton}
-            onPress={() => Alert.alert('KeralaGO Notifications', 'No pending alerts.')}
-            activeOpacity={0.7}
-          >
-            <Icon library="Ionicons" name="notifications-outline" size={24} color={Colors.textPrimary} />
-            <View style={styles.bellDot} />
-          </TouchableOpacity>
+          {/* Right Notification Bell & Quick Rider Switch */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <TouchableOpacity
+              style={styles.riderTogglePill}
+              onPress={toggleRole}
+              activeOpacity={0.8}
+            >
+              <Icon library="Ionicons" name="person" size={13} color={Colors.primary} />
+              <Typography variant="xs" weight="bold" color={Colors.primary} style={{ marginLeft: 4 }}>
+                Rider
+              </Typography>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.headerIconButton}
+              onPress={() => Alert.alert('KeralaGO Notifications', 'No pending alerts.')}
+              activeOpacity={0.7}
+            >
+              <Icon library="Ionicons" name="notifications-outline" size={24} color={Colors.textPrimary} />
+              <View style={styles.bellDot} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Floating Dark Green Duty Capsule Pill */}
@@ -449,10 +462,10 @@ const DriverHomePage: React.FC<DriverHomePageProps> = ({
             </View>
             <View>
               <Typography variant="h3" weight="bold" color={Colors.textPrimary}>
-                {user?.name || 'Suresh Pillai'}
+                {user?.name || 'Driver Partner'}
               </Typography>
               <Typography variant="caption" color={Colors.textMuted}>
-                KL-07-AB-1234 • Maruti Swift Dzire • 4.8 ★
+                {dashboardData?.vehicle ? `${dashboardData.vehicle.plate} • ${dashboardData.vehicle.make} ${dashboardData.vehicle.model}` : (user?.phone || 'Driver Partner')}
               </Typography>
             </View>
           </View>
@@ -529,6 +542,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.xs,
+  },
+  riderTogglePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: Radii.full,
+    borderWidth: 1.5,
+    borderColor: '#BBF7D0',
+    ...Shadows.sm,
   },
   headerIconButton: {
     width: 40,

@@ -27,3 +27,6 @@ export type { DocumentVerificationRowProps, VerificationStatus } from './Documen
 
 export { default as BottomTabBar } from './BottomTabBar';
 export type { BottomTabBarProps, TabItem } from './BottomTabBar';
+
+export { default as DriverRegistrationModal } from './DriverRegistrationModal';
+export type { DriverRegistrationModalProps } from './DriverRegistrationModal';

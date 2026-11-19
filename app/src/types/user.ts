@@ -11,5 +11,6 @@ export interface User {
   totalRides?: number;
   isOnline?: boolean;
   defaultPaymentMethod?: string;
+  is_driver?: boolean;
+  is_customer?: boolean;
 }
-

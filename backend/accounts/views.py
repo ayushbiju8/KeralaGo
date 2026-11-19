@@ -383,12 +383,13 @@ def format_user_payload(user):
     real_rating = round(float(avg_r), 1) if avg_r else None
 
     # Compute real total rides
+    has_dp = hasattr(user, 'driver_profile')
     if user.role == UserRole.DRIVER:
         real_total_rides = Ride.objects.filter(driver=user).count()
-        is_online = user.driver_profile.is_online if hasattr(user, 'driver_profile') else False
+        is_online = user.driver_profile.is_online if has_dp else False
     else:
         real_total_rides = Ride.objects.filter(customer=user).count()
-        is_online = None
+        is_online = user.driver_profile.is_online if has_dp else None
 
     return {
         'id': str(user.id),

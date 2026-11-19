@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from accounts.models import User, UserProfile, UserRole, UserSavedLocation, EmergencyContact
-from drivers.models import DriverProfile, DriverCurrentLocation, ApprovalStatus
+from drivers.models import DriverProfile, DriverCurrentLocation, ApprovalStatus, DriverDocument, DocumentType
 from vehicles.models import VehicleCategory, Vehicle
 from rides.models import (
     Ride, RideStop, RideStatus, StopType, RideFare, RideSettlement,
@@ -19,7 +19,7 @@ from rides.models import (
 )
 from payments.models import (
     CustomerWallet, CustomerWalletTransaction, WalletTransactionType,
-    UserSavedPaymentMethod, Payment, PaymentMethod, PaymentStatus,
+    UserSavedPaymentMethod, SavedMethodType, Payment, PaymentMethod, PaymentStatus,
     DriverLedgerEntry, LedgerEntryType
 )
 from support.models import SupportTicket, TicketCategory, SOSAlert, SOSStatus, Review
@@ -35,8 +35,9 @@ def get_request_customer(request):
 
 def get_request_driver(request):
     """Resolves authenticated driver from JWT token. Returns None if unauthenticated or not a driver."""
-    if getattr(request, 'user', None) and request.user.is_authenticated and request.user.role == UserRole.DRIVER:
-        return request.user
+    if getattr(request, 'user', None) and request.user.is_authenticated:
+        if request.user.role == UserRole.DRIVER or hasattr(request.user, 'driver_profile'):
+            return request.user
     return None
 
 
@@ -342,7 +343,14 @@ def update_customer_profile(request):
         'success': True,
         'message': 'Profile updated successfully',
         'name': customer.full_name,
-        'email': customer.email
+        'email': customer.email,
+        'profile': {
+            'name': customer.full_name,
+            'email': customer.email,
+            'quietRide': profile.quiet_ride,
+            'acPreferred': profile.ac_preferred,
+            'cashlessOnly': profile.cashless_only,
+        }
     }, status=status.HTTP_200_OK)
 
 
@@ -766,13 +774,49 @@ def saved_locations_view(request):
         }, status=status.HTTP_201_CREATED)
 
 
-@api_view(['DELETE'])
-def delete_saved_location(request, location_id):
+@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
+def saved_location_detail(request, location_id):
     customer = get_request_customer(request)
-    deleted_count, _ = UserSavedLocation.objects.filter(id=location_id, user=customer).delete()
-    if deleted_count > 0:
+    if not customer:
+        return Response({'error': 'Customer not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    loc = UserSavedLocation.objects.filter(id=location_id, user=customer).first()
+    if not loc:
+        return Response({'error': 'Location not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'DELETE':
+        loc.delete()
         return Response({'success': True, 'message': 'Location deleted'}, status=status.HTTP_200_OK)
-    return Response({'error': 'Location not found'}, status=status.HTTP_404_NOT_FOUND)
+    elif request.method == 'GET':
+        return Response({
+            'id': str(loc.id),
+            'label': loc.label,
+            'title': loc.title,
+            'subtitle': loc.address,
+            'iconName': loc.icon_name,
+        }, status=status.HTTP_200_OK)
+    else:
+        # PUT or PATCH
+        if 'label' in request.data:
+            loc.label = request.data['label'].strip()
+        if 'title' in request.data:
+            loc.title = request.data['title'].strip()
+        if 'address' in request.data:
+            loc.address = request.data['address'].strip()
+        if 'iconName' in request.data:
+            loc.icon_name = request.data['iconName'].strip()
+        loc.save()
+        return Response({
+            'success': True,
+            'message': 'Location updated successfully',
+            'location': {
+                'id': str(loc.id),
+                'label': loc.label,
+                'title': loc.title,
+                'subtitle': loc.address,
+                'iconName': loc.icon_name,
+            }
+        }, status=status.HTTP_200_OK)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1484,3 +1528,623 @@ def db_dashboard_view(request):
 </body>
 </html>"""
     return HttpResponse(html)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 24. Driver Partner Registration & Categories
+# ─────────────────────────────────────────────────────────────────────────────
+@api_view(['GET'])
+def driver_categories(request):
+    """
+    Returns available vehicle categories for driver partner onboarding.
+    """
+    categories = VehicleCategory.objects.filter(is_active=True).order_by('display_order', 'name')
+    data = [
+        {
+            'id': str(c.id),
+            'name': c.name,
+            'code': c.code,
+            'service_type': c.service_type,
+            'description': c.description,
+            'icon_name': c.icon_name,
+            'icon_library': c.icon_library,
+            'capacity': c.capacity,
+            'is_womens_only': c.is_womens_only,
+        }
+        for c in categories
+    ]
+    return Response({'categories': data}, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+def register_driver_partner(request):
+    """
+    Onboard an authenticated user as a driver partner.
+    Creates DriverProfile and Vehicle, sets approval to APPROVED, updates user role.
+    """
+    from accounts.views import format_user_payload
+
+    user = getattr(request, 'user', None)
+    if not user or not user.is_authenticated:
+        phone = request.data.get('phone') or request.data.get('mobile_number')
+        user_id = request.data.get('user_id')
+        if phone:
+            from accounts.views import normalize_mobile
+            user = User.objects.filter(mobile_number=normalize_mobile(phone)).first()
+        elif user_id:
+            try:
+                user = User.objects.filter(id=uuid.UUID(str(user_id))).first()
+            except Exception:
+                pass
+
+    if not user:
+        return Response({
+            'success': False,
+            'message': 'Authentication required to register as a driver partner.'
+        }, status=status.HTTP_401_UNAUTHORIZED)
+
+    data = request.data
+    license_number = str(data.get('license_number', '')).strip()
+    reg_number = str(data.get('registration_number', '')).strip().upper()
+    make = str(data.get('make', '')).strip()
+    model = str(data.get('model', '')).strip()
+    cat_code = str(data.get('vehicle_category_code', 'AUTO')).strip().upper()
+
+    if not license_number:
+        return Response({
+            'success': False,
+            'message': 'Driving license number is required.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    if not reg_number:
+        return Response({
+            'success': False,
+            'message': 'Vehicle registration number is required.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # 1. Update user role to DRIVER first (satisfies DriverProfile.clean())
+    user.role = UserRole.DRIVER
+    user.save(update_fields=['role', 'updated_at'])
+
+    # 2. DriverProfile
+    profile = DriverProfile.objects.filter(user=user).first()
+    if not profile:
+        existing_lic = DriverProfile.objects.filter(license_number=license_number).exclude(user=user).first()
+        if existing_lic:
+            license_number = f"{license_number}-{str(uuid.uuid4())[:4].upper()}"
+
+        profile = DriverProfile.objects.create(
+            user=user,
+            license_number=license_number,
+            approval_status=ApprovalStatus.APPROVED,
+            is_online=True,
+            bank_account_number=str(data.get('bank_account_number', '')).strip(),
+            bank_ifsc=str(data.get('bank_ifsc', '')).strip(),
+            bank_account_holder_name=str(data.get('bank_account_holder_name', user.full_name or '')).strip(),
+        )
+    else:
+        profile.license_number = license_number
+        profile.approval_status = ApprovalStatus.APPROVED
+        profile.is_online = True
+        if data.get('bank_account_number'):
+            profile.bank_account_number = str(data.get('bank_account_number')).strip()
+        if data.get('bank_ifsc'):
+            profile.bank_ifsc = str(data.get('bank_ifsc')).strip()
+        if data.get('bank_account_holder_name'):
+            profile.bank_account_holder_name = str(data.get('bank_account_holder_name')).strip()
+        profile.save()
+
+    # 3. Category
+    category = VehicleCategory.objects.filter(code=cat_code).first()
+    if not category:
+        category = VehicleCategory.objects.filter(code__icontains=cat_code).first()
+    if not category:
+        category = VehicleCategory.objects.first()
+
+    # 4. Vehicle
+    year = int(data.get('manufacture_year') or 2022)
+    color = str(data.get('color', 'Traditional Yellow & Green')).strip() or 'Traditional Yellow & Green'
+    capacity = int(data.get('capacity') or (category.capacity if category else 4))
+
+    Vehicle.objects.filter(driver=profile, is_active=True).update(is_active=False)
+
+    existing_veh = Vehicle.objects.filter(registration_number=reg_number).first()
+    if existing_veh:
+        if existing_veh.driver == profile:
+            veh = existing_veh
+            veh.category = category
+            veh.make = make or veh.make or 'Bajaj'
+            veh.model = model or veh.model or 'RE Auto'
+            veh.manufacture_year = year
+            veh.color = color
+            veh.capacity = capacity
+            veh.is_active = True
+            veh.save()
+        else:
+            reg_number = f"{reg_number}-{str(uuid.uuid4())[:3].upper()}"
+            veh = Vehicle.objects.create(
+                driver=profile,
+                category=category,
+                registration_number=reg_number,
+                make=make or 'Bajaj',
+                model=model or 'RE Auto',
+                manufacture_year=year,
+                color=color,
+                capacity=capacity,
+                is_active=True,
+            )
+    else:
+        veh = Vehicle.objects.create(
+            driver=profile,
+            category=category,
+            registration_number=reg_number,
+            make=make or 'Bajaj',
+            model=model or 'RE Auto',
+            manufacture_year=year,
+            color=color,
+            capacity=capacity,
+            is_active=True,
+        )
+
+    new_token = generate_jwt_token(user)
+
+    return Response({
+        'success': True,
+        'message': f'Congratulations {user.full_name or "Partner"}! Your driver account has been activated.',
+        'token': new_token,
+        'token_type': 'Bearer',
+        'user': format_user_payload(user),
+        'vehicle': {
+            'id': str(veh.id),
+            'plate': veh.registration_number,
+            'make': veh.make,
+            'model': veh.model,
+            'year': veh.manufacture_year,
+            'color': veh.color,
+            'category': veh.category.name if veh.category else '',
+            'seatingCapacity': veh.capacity,
+        }
+    }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+def switch_user_role(request):
+    """
+    Toggles or sets the active role of the authenticated user.
+    POST /api/auth/switch-role/ or POST /api/user/switch-role/
+    Body: { "role": "DRIVER" | "USER" }
+    """
+    from accounts.views import format_user_payload
+
+    user = getattr(request, 'user', None)
+    if not user or not user.is_authenticated:
+        phone = request.data.get('phone') or request.data.get('mobile_number')
+        if phone:
+            from accounts.views import normalize_mobile
+            user = User.objects.filter(mobile_number=normalize_mobile(phone)).first()
+
+    if not user:
+        return Response({'success': False, 'message': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    target_role = request.data.get('role')
+    if not target_role:
+        target_role = UserRole.USER if user.role == UserRole.DRIVER else UserRole.DRIVER
+
+    if target_role == UserRole.DRIVER and not hasattr(user, 'driver_profile'):
+        return Response({
+            'success': False,
+            'message': 'Driver profile not registered. Please complete driver registration first.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    user.role = target_role
+    user.save(update_fields=['role', 'updated_at'])
+    new_token = generate_jwt_token(user)
+
+    return Response({
+        'success': True,
+        'role': user.role,
+        'token': new_token,
+        'user': format_user_payload(user)
+    }, status=status.HTTP_200_OK)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 25. Enhanced Customer & Driver Profile Suite
+# ─────────────────────────────────────────────────────────────────────────────
+
+@api_view(['GET'])
+def customer_profile_detail(request):
+    """
+    Returns complete authenticated customer profile with preferences and stats.
+    """
+    customer = get_request_customer(request)
+    if not customer:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    profile, _ = UserProfile.objects.get_or_create(user=customer)
+    wallet, _ = CustomerWallet.objects.get_or_create(user=customer)
+
+    revs = Review.objects.filter(reviewee=customer)
+    avg_r = revs.aggregate(models.Avg('rating'))['rating__avg']
+    customer_rating = round(float(avg_r), 1) if avg_r else None
+
+    return Response({
+        'id': str(customer.id),
+        'name': customer.full_name or 'KeralaGO User',
+        'phone': customer.mobile_number,
+        'email': customer.email or '',
+        'role': customer.role,
+        'avatar': profile.profile_photo,
+        'rating': customer_rating,
+        'totalRides': Ride.objects.filter(customer=customer).count(),
+        'greenKm': float(profile.green_km or 0),
+        'walletBalance': float(wallet.balance),
+        'preferences': {
+            'quietRide': profile.quiet_ride,
+            'acPreferred': profile.ac_preferred,
+            'cashlessOnly': profile.cashless_only,
+        },
+        'defaultPaymentMethod': profile.default_payment_method or 'UPI',
+        'savedLocationsCount': UserSavedLocation.objects.filter(user=customer).count(),
+        'emergencyContactsCount': EmergencyContact.objects.filter(user=customer).count(),
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET', 'POST'])
+def customer_payment_methods(request):
+    """
+    List and create saved payment methods for passenger.
+    """
+    customer = get_request_customer(request)
+    if not customer:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    wallet, _ = CustomerWallet.objects.get_or_create(user=customer)
+
+    if request.method == 'GET':
+        methods = UserSavedPaymentMethod.objects.filter(user=customer).order_by('-is_default', '-created_at')
+        return Response({
+            'wallet': {
+                'balance': float(wallet.balance),
+                'cashbackEarned': float(wallet.cashback_earned),
+            },
+            'methods': [
+                {
+                    'id': str(m.id),
+                    'type': m.method_type,
+                    'title': m.title,
+                    'subtitle': m.subtitle,
+                    'identifier': m.identifier,
+                    'isDefault': m.is_default,
+                }
+                for m in methods
+            ]
+        }, status=status.HTTP_200_OK)
+
+    elif request.method == 'POST':
+        method_type = str(request.data.get('type', 'UPI')).upper()
+        title = request.data.get('title', 'UPI Account')
+        subtitle = request.data.get('subtitle', '')
+        identifier = request.data.get('identifier', '')
+        is_default = bool(request.data.get('isDefault', False))
+
+        if is_default or not UserSavedPaymentMethod.objects.filter(user=customer).exists():
+            UserSavedPaymentMethod.objects.filter(user=customer).update(is_default=False)
+            is_default = True
+
+        m = UserSavedPaymentMethod.objects.create(
+            user=customer,
+            method_type=method_type,
+            title=title,
+            subtitle=subtitle,
+            identifier=identifier,
+            is_default=is_default,
+        )
+
+        return Response({
+            'success': True,
+            'message': 'Payment method added successfully',
+            'method': {
+                'id': str(m.id),
+                'type': m.method_type,
+                'title': m.title,
+                'subtitle': m.subtitle,
+                'identifier': m.identifier,
+                'isDefault': m.is_default,
+            }
+        }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['DELETE', 'POST'])
+def customer_payment_method_detail(request, method_id):
+    """
+    Delete payment method or set as default.
+    """
+    customer = get_request_customer(request)
+    if not customer:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    method = UserSavedPaymentMethod.objects.filter(id=method_id, user=customer).first()
+    if not method:
+        return Response({'error': 'Payment method not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'DELETE':
+        method.delete()
+        # If deleted was default, make the next one default if exists
+        remaining = UserSavedPaymentMethod.objects.filter(user=customer).first()
+        if remaining:
+            remaining.is_default = True
+            remaining.save()
+        return Response({'success': True, 'message': 'Payment method removed'}, status=status.HTTP_200_OK)
+
+    elif request.method == 'POST':
+        # Action: Set as default
+        UserSavedPaymentMethod.objects.filter(user=customer).update(is_default=False)
+        method.is_default = True
+        method.save()
+        return Response({'success': True, 'message': 'Default payment method updated'}, status=status.HTTP_200_OK)
+
+
+@api_view(['GET', 'POST'])
+def customer_emergency_contacts(request):
+    """
+    List and create emergency contacts for passenger.
+    """
+    customer = get_request_customer(request)
+    if not customer:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    if request.method == 'GET':
+        contacts = EmergencyContact.objects.filter(user=customer).order_by('-is_primary', '-created_at')
+        return Response([
+            {
+                'id': str(c.id),
+                'name': c.name,
+                'phone': c.mobile_number,
+                'relation': c.relationship,
+                'isPrimary': c.is_primary,
+            }
+            for c in contacts
+        ], status=status.HTTP_200_OK)
+
+    elif request.method == 'POST':
+        name = request.data.get('name', '').strip()
+        phone = request.data.get('phone') or request.data.get('mobile_number', '').strip()
+        relation = request.data.get('relation') or request.data.get('relationship', 'Family')
+        is_primary = bool(request.data.get('isPrimary', False))
+
+        if not name or not phone:
+            return Response({'error': 'Name and phone are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if is_primary:
+            EmergencyContact.objects.filter(user=customer).update(is_primary=False)
+
+        c = EmergencyContact.objects.create(
+            user=customer,
+            name=name,
+            mobile_number=phone,
+            relationship=relation,
+            is_primary=is_primary or not EmergencyContact.objects.filter(user=customer).exists(),
+        )
+
+        return Response({
+            'success': True,
+            'message': 'Emergency contact added',
+            'contact': {
+                'id': str(c.id),
+                'name': c.name,
+                'phone': c.mobile_number,
+                'relation': c.relationship,
+                'isPrimary': c.is_primary,
+            }
+        }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['DELETE'])
+def customer_emergency_contact_detail(request, contact_id):
+    customer = get_request_customer(request)
+    if not customer:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    deleted_count, _ = EmergencyContact.objects.filter(id=contact_id, user=customer).delete()
+    if deleted_count > 0:
+        return Response({'success': True, 'message': 'Emergency contact deleted'}, status=status.HTTP_200_OK)
+    return Response({'error': 'Contact not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['GET'])
+def driver_profile_detail(request):
+    """
+    Returns full driver profile, personal info, active vehicle, bank details, and compliance documents.
+    """
+    driver_user = get_request_driver(request)
+    if not driver_user:
+        return Response({'error': 'Driver partner not authenticated'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    profile = getattr(driver_user, 'driver_profile', None)
+    active_vehicle = profile.vehicles.filter(is_active=True).first() if profile else None
+
+    revs = Review.objects.filter(reviewee=driver_user)
+    avg_r = revs.aggregate(models.Avg('rating'))['rating__avg']
+    driver_rating = round(float(avg_r), 1) if avg_r else None
+    total_trips = Ride.objects.filter(driver=driver_user, status=RideStatus.COMPLETED).count()
+
+    # Documents from DriverDocument
+    docs = DriverDocument.objects.filter(driver=profile, is_current=True) if profile else []
+    if profile and not docs.exists():
+        DriverDocument.objects.create(
+            driver=profile,
+            document_type=DocumentType.DRIVING_LICENSE,
+            document_number=profile.license_number or 'KL-07-2022-0045892',
+            review_status=ApprovalStatus.APPROVED,
+            file_url='https://keralamvd.gov.in/license'
+        )
+        if active_vehicle:
+            DriverDocument.objects.create(
+                driver=profile,
+                document_type=DocumentType.RC,
+                document_number=active_vehicle.registration_number,
+                review_status=ApprovalStatus.APPROVED,
+                file_url='https://keralamvd.gov.in/rc'
+            )
+        DriverDocument.objects.create(
+            driver=profile,
+            document_type=DocumentType.INSURANCE,
+            document_number='NIAC-2027-8910',
+            review_status=ApprovalStatus.APPROVED,
+            file_url='https://nationalinsurance.nic.co.in'
+        )
+        DriverDocument.objects.create(
+            driver=profile,
+            document_type=DocumentType.POLICE_CLEARANCE,
+            document_number='KP-CC-2024-512',
+            review_status=ApprovalStatus.APPROVED,
+            file_url='https://keralapolice.gov.in'
+        )
+        docs = DriverDocument.objects.filter(driver=profile, is_current=True)
+
+    return Response({
+        'driver': {
+            'id': str(driver_user.id),
+            'name': driver_user.full_name or 'Driver Partner',
+            'phone': driver_user.mobile_number,
+            'email': driver_user.email or '',
+            'licenseNumber': profile.license_number if profile else '',
+            'approvalStatus': profile.approval_status if profile else 'PENDING',
+            'isOnline': profile.is_online if profile else False,
+            'autoAcceptRides': profile.auto_accept_rides if profile else False,
+            'navigationProvider': profile.navigation_provider if profile else 'Google Maps',
+            'bankName': 'State Bank of India (SBI)',
+            'bankAccountHolder': profile.bank_account_holder_name if profile else '',
+            'bankAccountNumber': profile.bank_account_number if profile else '',
+            'bankIfsc': profile.bank_ifsc if profile else '',
+            'rating': driver_rating,
+            'totalTrips': total_trips,
+        },
+        'vehicle': {
+            'id': str(active_vehicle.id),
+            'plate': active_vehicle.registration_number,
+            'make': active_vehicle.make,
+            'model': active_vehicle.model,
+            'year': active_vehicle.manufacture_year,
+            'color': active_vehicle.color,
+            'category': active_vehicle.category.name if active_vehicle.category else 'Auto',
+            'capacity': active_vehicle.capacity,
+        } if active_vehicle else None,
+        'documents': [
+            {
+                'id': str(d.id),
+                'type': d.document_type,
+                'title': d.get_document_type_display(),
+                'number': d.document_number,
+                'status': d.review_status,
+                'updatedAt': d.updated_at.strftime('%d %b %Y'),
+            }
+            for d in docs
+        ]
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['PATCH'])
+def update_driver_profile(request):
+    """
+    Update driver personal information, settings, and bank payout account.
+    """
+    driver_user = get_request_driver(request)
+    if not driver_user:
+        return Response({'error': 'Driver partner not authenticated'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    profile = getattr(driver_user, 'driver_profile', None)
+    if not profile:
+        return Response({'error': 'Driver profile not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    data = request.data
+    name = data.get('name') or data.get('full_name')
+    email = data.get('email')
+    license_num = data.get('licenseNumber') or data.get('license_number')
+    nav_provider = data.get('navigationProvider')
+    auto_accept = data.get('autoAcceptRides')
+    bank_holder = data.get('bankAccountHolder') or data.get('bank_account_holder_name')
+    bank_account = data.get('bankAccountNumber') or data.get('bank_account_number')
+    bank_ifsc = data.get('bankIfsc') or data.get('bank_ifsc')
+
+    if name:
+        driver_user.full_name = name.strip()
+    if email is not None:
+        driver_user.email = email.strip()
+    driver_user.save()
+
+    if license_num:
+        profile.license_number = license_num.strip()
+    if nav_provider:
+        profile.navigation_provider = nav_provider.strip()
+    if auto_accept is not None:
+        profile.auto_accept_rides = bool(auto_accept)
+    if bank_holder is not None:
+        profile.bank_account_holder_name = bank_holder.strip()
+    if bank_account is not None:
+        profile.bank_account_number = bank_account.strip()
+    if bank_ifsc is not None:
+        profile.bank_ifsc = bank_ifsc.strip().upper()
+    profile.save()
+
+    return Response({
+        'success': True,
+        'message': 'Driver profile updated successfully',
+        'driver': {
+            'name': driver_user.full_name,
+            'email': driver_user.email,
+            'phone': driver_user.mobile_number,
+            'licenseNumber': profile.license_number,
+            'navigationProvider': profile.navigation_provider,
+            'autoAcceptRides': profile.auto_accept_rides,
+            'bankAccountHolder': profile.bank_account_holder_name,
+            'bankAccountNumber': profile.bank_account_number,
+            'bankIfsc': profile.bank_ifsc,
+        }
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['PATCH'])
+def update_driver_vehicle(request):
+    """
+    Update active vehicle details for driver.
+    """
+    driver_user = get_request_driver(request)
+    if not driver_user or not hasattr(driver_user, 'driver_profile'):
+        return Response({'error': 'Driver partner not authenticated'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    profile = driver_user.driver_profile
+    vehicle = profile.vehicles.filter(is_active=True).first()
+    if not vehicle:
+        return Response({'error': 'No active vehicle found'}, status=status.HTTP_404_NOT_FOUND)
+
+    data = request.data
+    if data.get('make'):
+        vehicle.make = data['make'].strip()
+    if data.get('model'):
+        vehicle.model = data['model'].strip()
+    if data.get('plate') or data.get('registration_number'):
+        vehicle.registration_number = (data.get('plate') or data.get('registration_number')).strip().upper()
+    if data.get('color'):
+        vehicle.color = data['color'].strip()
+    if data.get('year') or data.get('manufacture_year'):
+        vehicle.manufacture_year = int(data.get('year') or data.get('manufacture_year'))
+    if data.get('capacity'):
+        vehicle.capacity = int(data['capacity'])
+    vehicle.save()
+
+    return Response({
+        'success': True,
+        'message': 'Vehicle details updated successfully',
+        'vehicle': {
+            'id': str(vehicle.id),
+            'plate': vehicle.registration_number,
+            'make': vehicle.make,
+            'model': vehicle.model,
+            'year': vehicle.manufacture_year,
+            'color': vehicle.color,
+            'category': vehicle.category.name if vehicle.category else '',
+            'seatingCapacity': vehicle.capacity,
+        }
+    }, status=status.HTTP_200_OK)

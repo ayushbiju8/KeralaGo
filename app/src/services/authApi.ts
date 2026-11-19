@@ -226,3 +226,119 @@ export const updateUserProfileApi = async (
     return false;
   }
 };
+
+
+
+export interface DriverRegistrationPayload {
+  license_number: string;
+  district?: string;
+  experience_years?: number;
+  vehicle_category_code: string;
+  registration_number: string;
+  make: string;
+  model: string;
+  manufacture_year?: number;
+  color?: string;
+  capacity?: number;
+  bank_name?: string;
+  bank_account_number?: string;
+  bank_ifsc?: string;
+  bank_account_holder_name?: string;
+}
+
+export const fetchVehicleCategoriesApi = async (): Promise<any[]> => {
+  try {
+    const res = await fetch(`${API_BASE}/driver/categories/`);
+    if (res.ok) {
+      const data = await res.json();
+      return data.categories || [];
+    }
+    return [];
+  } catch (err) {
+    console.warn('[authApi] fetchVehicleCategories error:', err);
+    return [];
+  }
+};
+
+export const registerDriverPartnerApi = async (
+  payload: DriverRegistrationPayload
+): Promise<{ success: boolean; message?: string; user?: User; token?: string; vehicle?: any }> => {
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const token = getAuthToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(`${API_BASE}/driver/register/`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+    if (res.ok && data.success) {
+      if (data.token) {
+        setAuthToken(data.token);
+      }
+      return {
+        success: true,
+        message: data.message,
+        user: data.user,
+        token: data.token,
+        vehicle: data.vehicle,
+      };
+    }
+    return {
+      success: false,
+      message: data.message || 'Driver registration failed',
+    };
+  } catch (err: any) {
+    console.warn('[authApi] registerDriverPartner error:', err);
+    return {
+      success: false,
+      message: err.message || 'Network error during driver registration',
+    };
+  }
+};
+
+export const switchUserRoleApi = async (
+  role?: UserRole
+): Promise<{ success: boolean; role?: UserRole; user?: User; token?: string; message?: string }> => {
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const token = getAuthToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(`${API_BASE}/auth/switch-role/`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ role }),
+    });
+
+    const data = await res.json();
+    if (res.ok && data.success) {
+      if (data.token) {
+        setAuthToken(data.token);
+      }
+      return {
+        success: true,
+        role: data.role,
+        user: data.user,
+        token: data.token,
+      };
+    }
+    return {
+      success: false,
+      message: data.message || 'Failed to switch role',
+    };
+  } catch (err: any) {
+    console.warn('[authApi] switchUserRole error:', err);
+    return {
+      success: false,
+      message: err.message || 'Network error during role switch',
+    };
+  }
+};

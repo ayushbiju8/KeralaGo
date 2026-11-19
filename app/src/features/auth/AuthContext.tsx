@@ -5,6 +5,9 @@ import {
   verifyOtpApi,
   updateUserProfileApi,
   fetchUserProfileApi,
+  registerDriverPartnerApi,
+  switchUserRoleApi,
+  DriverRegistrationPayload,
   SendOtpResponse,
   SendOtpParams,
   VerifyOtpParams,
@@ -15,6 +18,11 @@ export interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
+  isDriver: boolean;
+  isDriverRegistrationOpen: boolean;
+  openDriverRegistration: () => void;
+  closeDriverRegistration: () => void;
+  registerDriver: (payload: DriverRegistrationPayload) => Promise<{ success: boolean; message?: string; vehicle?: any }>;
   login: (role?: UserRole) => void;
   loginWithCredentials: (
     target: string | VerifyOtpParams,
@@ -34,15 +42,23 @@ export interface AuthContextType {
   refreshProfile: () => Promise<void>;
 }
 
-// No fake mock users. User state is strictly null until authenticated via API.
-
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // Authentication Guard: Initially null to enforce login and RBAC route protection
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isDriverRegistrationOpen, setIsDriverRegistrationOpen] = useState<boolean>(false);
+
+  const isDriver = !!(user && (user.is_driver || user.role === 'DRIVER'));
+
+  const openDriverRegistration = useCallback(() => {
+    setIsDriverRegistrationOpen(true);
+  }, []);
+
+  const closeDriverRegistration = useCallback(() => {
+    setIsDriverRegistrationOpen(false);
+  }, []);
 
   // Send OTP linked to MSG91 SMS or Gmail SMTP Email
   const sendOtp = useCallback(
@@ -93,6 +109,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUser((prev) => (prev ? { ...prev, role } : null));
   }, []);
 
+  // Register Driver Partner (Uber-style onboarding)
+  const registerDriver = useCallback(
+    async (payload: DriverRegistrationPayload): Promise<{ success: boolean; message?: string; vehicle?: any }> => {
+      setIsLoading(true);
+      try {
+        const res = await registerDriverPartnerApi(payload);
+        if (res.success && res.user) {
+          setUser(res.user);
+          if (res.token) {
+            setToken(res.token);
+            setAuthToken(res.token);
+          }
+          setIsDriverRegistrationOpen(false);
+          return { success: true, message: res.message, vehicle: res.vehicle };
+        }
+        return { success: false, message: res.message || 'Driver registration failed' };
+      } catch (err: any) {
+        return { success: false, message: err.message || 'Network error' };
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    []
+  );
+
   // Update profile and persist directly to database
   const updateProfile = useCallback(
     async (name: string, paymentMethod?: string): Promise<boolean> => {
@@ -128,6 +169,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUser(null);
     setToken(null);
     setAuthToken(null);
+    setIsDriverRegistrationOpen(false);
   }, []);
 
   const setRole = useCallback((role: UserRole) => {
@@ -141,15 +183,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
   }, []);
 
+  // Seamless switch between Passenger (USER) and Driver Partner (DRIVER)
   const toggleRole = useCallback(() => {
     setUser((prev) => {
       if (!prev) return null;
-      const nextRole: UserRole = prev.role === 'USER' ? 'DRIVER' : 'USER';
-      return {
-        ...prev,
-        role: nextRole,
-        isOnline: nextRole === 'DRIVER' ? (prev.isOnline ?? true) : undefined,
-      };
+
+      if (prev.role === 'DRIVER') {
+        // Switch back to Rider / Passenger mode
+        switchUserRoleApi('USER').catch(() => {});
+        return {
+          ...prev,
+          role: 'USER',
+          isOnline: undefined,
+        };
+      }
+
+      // Currently USER (Passenger)
+      if (prev.is_driver) {
+        // Already an approved driver: switch to Driver mode
+        switchUserRoleApi('DRIVER').catch(() => {});
+        return {
+          ...prev,
+          role: 'DRIVER',
+          isOnline: prev.isOnline ?? true,
+        };
+      }
+
+      // Not yet a driver partner -> trigger Driver Creation Modal
+      setIsDriverRegistrationOpen(true);
+      return prev;
     });
   }, []);
 
@@ -169,6 +231,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         user,
         token,
         isLoading,
+        isDriver,
+        isDriverRegistrationOpen,
+        openDriverRegistration,
+        closeDriverRegistration,
+        registerDriver,
         login,
         loginWithCredentials,
         sendOtp,

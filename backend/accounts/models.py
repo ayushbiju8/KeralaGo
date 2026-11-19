@@ -114,11 +114,11 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     @property
     def is_driver(self):
-        return self.role == UserRole.DRIVER
+        return self.role == UserRole.DRIVER or hasattr(self, 'driver_profile')
 
     @property
     def is_customer(self):
-        return self.role == UserRole.USER
+        return True
 
     @property
     def is_admin_user(self):
