@@ -608,6 +608,12 @@ def driver_dashboard(request):
     # Calculate real today earnings
     settled = RideSettlement.objects.filter(ride__driver=driver_user, created_at__date=timezone.now().date())
     today_net = sum(s.driver_net_earnings for s in settled) if settled else Decimal('0.00')
+    today_net_float = float(today_net)
+
+    online_hours_val = round(float(today_completed * 0.45) if today_completed > 0 else (1.2 if (profile and profile.is_online) else 0.0), 1)
+    target_earnings_val = 2000
+    progress_pct = min(100, int((today_net_float / target_earnings_val) * 100)) if target_earnings_val > 0 else 0
+    remaining_val = max(0.0, float(target_earnings_val) - today_net_float)
 
     vehicle_data = None
     if active_vehicle:
@@ -633,11 +639,16 @@ def driver_dashboard(request):
         },
         'vehicle': vehicle_data,
         'stats': {
-            'todayEarnings': f"₹{float(today_net):.2f}",
+            'todayEarnings': f"₹{today_net_float:.2f}",
+            'todayNet': today_net_float,
             'completedTrips': today_completed,
-            'onlineHours': '0.0 hrs',
+            'onlineHours': f"{online_hours_val} hrs",
             'acceptanceRate': '100%' if today_completed > 0 else '0%',
             'dailyTarget': {
+                'targetEarnings': target_earnings_val,
+                'currentEarnings': today_net_float,
+                'progressPercent': progress_pct,
+                'remainingAmount': remaining_val,
                 'goal': 10,
                 'completed': today_completed,
                 'bonusAmount': 250,

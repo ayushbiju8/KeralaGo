@@ -8,6 +8,7 @@ import {
   Alert,
   Image,
   Dimensions,
+  Modal,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
@@ -16,6 +17,8 @@ import {
   Card,
   Divider,
   Icon,
+  Button,
+  Badge,
 } from '../../components/atoms';
 import {
   DriverHeroCarBanner,
@@ -56,6 +59,17 @@ const DriverHomePage: React.FC<DriverHomePageProps> = ({
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [showIncomingModal, setShowIncomingModal] = useState<boolean>(false);
   const [dashboardData, setDashboardData] = useState<any>(null);
+  const [progressModalVisible, setProgressModalVisible] = useState<boolean>(false);
+  const [customGoal, setCustomGoal] = useState<number>(2000);
+
+  const todayNet = dashboardData?.stats?.todayNet ?? (
+    dashboardData?.stats?.todayEarnings ? parseFloat(String(dashboardData.stats.todayEarnings).replace(/[^0-9.]/g, '')) || 0 : 0
+  );
+  const targetEarnings = customGoal || dashboardData?.stats?.dailyTarget?.targetEarnings || 2000;
+  const progressPercent = Math.min(100, Math.round((todayNet / targetEarnings) * 100));
+  const remainingAmount = Math.max(0, targetEarnings - todayNet);
+  const completedTrips = dashboardData?.stats?.completedTrips ?? 0;
+  const onlineHours = dashboardData?.stats?.onlineHours || '0.0 hrs';
 
   useEffect(() => {
     let isMounted = true;
@@ -215,11 +229,11 @@ const DriverHomePage: React.FC<DriverHomePageProps> = ({
           contentContainerStyle={styles.drawerScrollContent}
           bounces={false}
         >
-          {/* ── Vehicle Card (Maruti Swift Dzire / KL 07 AB 1234 / Sedan) ── */}
+          {/* ── Vehicle Card (Real Database Active Vehicle) ── */}
           <TouchableOpacity
             style={styles.vehicleCard}
             activeOpacity={0.85}
-            onPress={onNavigateVehicleDetails ?? (() => Alert.alert('Vehicle Details', 'Maruti Swift Dzire\nRegistration: KL 07 AB 1234\nCategory: Sedan\nFitness & Insurance: Valid'))}
+            onPress={onNavigateVehicleDetails}
           >
             <View style={styles.carImageContainer}>
               <Image
@@ -231,14 +245,14 @@ const DriverHomePage: React.FC<DriverHomePageProps> = ({
 
             <View style={styles.vehicleInfoCol}>
               <Typography variant="body1" weight="bold" color={Colors.textPrimary}>
-                Maruti Swift Dzire
+                {dashboardData?.vehicle?.model || 'No Active Vehicle'}
               </Typography>
               <Typography variant="body2" weight="medium" color={Colors.textSecondary} style={{ marginTop: 2 }}>
-                KL 07 AB 1234
+                {dashboardData?.vehicle?.plate || 'Tap to Register Vehicle'}
               </Typography>
               <View style={styles.sedanBadge}>
                 <Typography variant="xs" weight="bold" color="#166534">
-                  Sedan
+                  {dashboardData?.vehicle?.category || 'Taxi / Auto'}
                 </Typography>
               </View>
             </View>
@@ -319,13 +333,13 @@ const DriverHomePage: React.FC<DriverHomePageProps> = ({
             </View>
           </TouchableOpacity>
 
-          {/* ── Today's Progress Section ── */}
+          {/* ── Today's Progress Section (Real Dynamic Stats) ── */}
           <View style={styles.sectionHeaderRow}>
             <Typography variant="h4" weight="bold" color={Colors.textPrimary}>
               Today's Progress
             </Typography>
             <TouchableOpacity
-              onPress={() => Alert.alert('Earnings Progress Details', 'Target: ₹2,000\nCompleted: ₹1,240 (62%)\nRemaining: ₹760 to daily bonus')}
+              onPress={() => setProgressModalVisible(true)}
               style={styles.viewDetailsRow}
             >
               <Typography variant="body2" weight="bold" color={Colors.primary}>
@@ -335,30 +349,35 @@ const DriverHomePage: React.FC<DriverHomePageProps> = ({
             </TouchableOpacity>
           </View>
 
-          <Card style={styles.progressCard}>
-            <View style={styles.progressTopRow}>
-              <View style={styles.targetIconCircle}>
-                <Icon library="Ionicons" name="checkmark-circle-outline" size={24} color="#0F4A2B" />
+          <TouchableOpacity activeOpacity={0.9} onPress={() => setProgressModalVisible(true)}>
+            <Card style={styles.progressCard}>
+              <View style={styles.progressTopRow}>
+                <View style={styles.targetIconCircle}>
+                  <Icon library="Ionicons" name="checkmark-circle-outline" size={24} color="#0F4A2B" />
+                </View>
+                <View style={{ marginLeft: Spacing.md, flex: 1 }}>
+                  <Typography variant="h3" weight="bold" color={Colors.textPrimary}>
+                    ₹{Math.round(todayNet).toLocaleString('en-IN')}{' '}
+                    <Typography variant="h3" weight="regular" color={Colors.textSecondary}>
+                      / ₹{targetEarnings.toLocaleString('en-IN')}
+                    </Typography>
+                  </Typography>
+                  <Typography variant="caption" color={Colors.textSecondary} style={{ marginTop: 2 }}>
+                    Earnings goal ({completedTrips} trips completed)
+                  </Typography>
+                </View>
               </View>
-              <View style={{ marginLeft: Spacing.md, flex: 1 }}>
-                <Typography variant="h3" weight="bold" color={Colors.textPrimary}>
-                  ₹1,240 <Typography variant="h3" weight="regular" color={Colors.textSecondary}>/ ₹2,000</Typography>
-                </Typography>
-                <Typography variant="caption" color={Colors.textSecondary} style={{ marginTop: 2 }}>
-                  Earnings goal
-                </Typography>
-              </View>
-            </View>
 
-            <View style={styles.progressBarWrapper}>
-              <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: '62%' }]} />
+              <View style={styles.progressBarWrapper}>
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+                </View>
+                <Typography variant="caption" weight="bold" color={Colors.textSecondary} style={styles.progressPercentText}>
+                  {progressPercent}%
+                </Typography>
               </View>
-              <Typography variant="caption" weight="bold" color={Colors.textSecondary} style={styles.progressPercentText}>
-                62%
-              </Typography>
-            </View>
-          </Card>
+            </Card>
+          </TouchableOpacity>
 
           {/* ── Quick Actions Section ── */}
           <View style={styles.sectionHeaderRow}>
@@ -428,6 +447,140 @@ const DriverHomePage: React.FC<DriverHomePageProps> = ({
         onTabPress={handleTabSelect}
         style={styles.bottomTabBar}
       />
+
+      {/* ── Today's Progress Interactive Details Modal ── */}
+      <Modal
+        visible={progressModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setProgressModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Typography variant="h3" weight="bold" color="#0F172A">
+                  Today's Progress
+                </Typography>
+                <Typography variant="xs" color="#64748B">
+                  Real-time earnings & daily target
+                </Typography>
+              </View>
+              <TouchableOpacity
+                onPress={() => setProgressModalVisible(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Icon library="Ionicons" name="close" size={24} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Progress Big Metric Card */}
+              <View style={styles.progressDetailBox}>
+                <View style={styles.progressMetricHeader}>
+                  <Typography variant="caption" weight="semiBold" color="#0F4A2B">
+                    DAILY EARNINGS TARGET
+                  </Typography>
+                  <Badge
+                    variant={progressPercent >= 100 ? 'success' : 'info'}
+                    label={progressPercent >= 100 ? 'Goal Achieved! 🎉' : `${progressPercent}% Completed`}
+                    size="sm"
+                  />
+                </View>
+
+                <Typography variant="h1" weight="bold" color="#0F172A" style={{ marginTop: 8 }}>
+                  ₹{todayNet.toFixed(2)}{' '}
+                  <Typography variant="h3" weight="regular" color="#64748B">
+                    / ₹{targetEarnings.toLocaleString('en-IN')}
+                  </Typography>
+                </Typography>
+
+                <View style={[styles.progressBarWrapper, { marginTop: 12 }]}>
+                  <View style={styles.progressTrack}>
+                    <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+                  </View>
+                </View>
+
+                <Typography variant="caption" color={remainingAmount === 0 ? '#16A34A' : '#64748B'} style={{ marginTop: 6 }}>
+                  {remainingAmount === 0
+                    ? "Congratulations! You have completed today's earnings target."
+                    : `₹${remainingAmount.toFixed(0)} remaining to reach today's target.`}
+                </Typography>
+              </View>
+
+              {/* 3 Metrics Mini Grid */}
+              <View style={styles.metricsGrid}>
+                <View style={styles.metricItem}>
+                  <Icon library="Ionicons" name="car-sport" size={20} color="#10B981" />
+                  <Typography variant="h3" weight="bold" color="#0F172A" style={{ marginTop: 4 }}>
+                    {completedTrips}
+                  </Typography>
+                  <Typography variant="caption" color="#64748B">
+                    Completed Rides
+                  </Typography>
+                </View>
+
+                <View style={styles.metricItem}>
+                  <Icon library="Ionicons" name="time-outline" size={20} color="#3B82F6" />
+                  <Typography variant="h3" weight="bold" color="#0F172A" style={{ marginTop: 4 }}>
+                    {onlineHours}
+                  </Typography>
+                  <Typography variant="caption" color="#64748B">
+                    Hours on Duty
+                  </Typography>
+                </View>
+
+                <View style={styles.metricItem}>
+                  <Icon library="Ionicons" name="trophy-outline" size={20} color="#F59E0B" />
+                  <Typography variant="h3" weight="bold" color="#0F172A" style={{ marginTop: 4 }}>
+                    ₹250
+                  </Typography>
+                  <Typography variant="caption" color="#64748B">
+                    Daily Bonus
+                  </Typography>
+                </View>
+              </View>
+
+              {/* Daily Target Goal Setter */}
+              <View style={{ marginTop: 16 }}>
+                <Typography variant="caption" weight="bold" color="#475569" style={{ letterSpacing: 0.5, marginBottom: 8 }}>
+                  CUSTOMIZE DAILY GOAL
+                </Typography>
+                <View style={styles.goalPillsRow}>
+                  {[1500, 2000, 2500, 3000].map((goal) => (
+                    <TouchableOpacity
+                      key={goal}
+                      onPress={() => setCustomGoal(goal)}
+                      style={[
+                        styles.goalPill,
+                        targetEarnings === goal && styles.goalPillActive,
+                      ]}
+                    >
+                      <Typography
+                        variant="caption"
+                        weight="bold"
+                        color={targetEarnings === goal ? '#FFFFFF' : '#0F172A'}
+                      >
+                        ₹{goal.toLocaleString('en-IN')}
+                      </Typography>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={{ marginTop: 20 }}>
+                <Button
+                  label="Done"
+                  variant="primary"
+                  size="md"
+                  fullWidth
+                  onPress={() => setProgressModalVisible(false)}
+                />
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* ── Incoming Ride Request Simulator Modal ── */}
       <RideRequestModal
@@ -837,6 +990,73 @@ const styles = StyleSheet.create({
     borderRadius: Radii.lg,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  // ── Today's Progress Modal Styles ──
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.base,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    ...Shadows.lg,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  progressDetailBox: {
+    backgroundColor: '#F0FDF4',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+  },
+  progressMetricHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  metricsGrid: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 14,
+  },
+  metricItem: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  goalPillsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  goalPill: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+  },
+  goalPillActive: {
+    backgroundColor: '#0F4A2B',
+    borderColor: '#0F4A2B',
   },
 });
 

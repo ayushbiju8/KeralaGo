@@ -41,59 +41,7 @@ interface TripRecord {
   fare: string;
 }
 
-const TODAY_TRIPS: TripRecord[] = [
-  {
-    id: 't1',
-    time: '10:15 AM',
-    dotColor: '#10B981',
-    pickup: 'M B Hostel',
-    dropoff: 'Mar Athanasius College',
-    fare: '₹120',
-  },
-  {
-    id: 't2',
-    time: '09:42 AM',
-    dotColor: '#EF4444',
-    pickup: 'Kattuchira',
-    dropoff: 'M B Hostel',
-    fare: '₹85',
-  },
-  {
-    id: 't3',
-    time: '08:20 AM',
-    dotColor: '#3B82F6',
-    pickup: 'MACE',
-    dropoff: 'Ernakulam Jn',
-    fare: '₹165',
-  },
-  {
-    id: 't4',
-    time: '07:15 AM',
-    dotColor: '#10B981',
-    pickup: 'Collectorate',
-    dropoff: 'Kothamangalam',
-    fare: '₹110',
-  },
-];
 
-const YESTERDAY_TRIPS: TripRecord[] = [
-  {
-    id: 'y1',
-    time: '08:30 PM',
-    dotColor: '#EF4444',
-    pickup: 'Lulu Mall',
-    dropoff: 'M B Hostel',
-    fare: '₹150',
-  },
-  {
-    id: 'y2',
-    time: '06:10 PM',
-    dotColor: '#EF4444',
-    pickup: 'Mar Athanasius College',
-    dropoff: 'Kattuchira',
-    fare: '₹95',
-  },
-];
 
 export interface DriverTripsPageProps {
   onBack?: () => void;
