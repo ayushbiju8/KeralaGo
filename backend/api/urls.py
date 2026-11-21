@@ -54,11 +54,11 @@ urlpatterns = [
     path('customer/trips/', customer_trips, name='customer_trips'),
     path('customer/wallet/topup/', wallet_top_up, name='wallet_top_up'),
     path('customer/locations/', saved_locations_view, name='saved_locations'),
-    path('customer/locations/<uuid:location_id>/', saved_location_detail, name='saved_location_detail'),
+    path('customer/locations/<str:location_id>/', saved_location_detail, name='saved_location_detail'),
     path('customer/payment-methods/', customer_payment_methods, name='customer_payment_methods'),
-    path('customer/payment-methods/<uuid:method_id>/', customer_payment_method_detail, name='customer_payment_method_detail'),
+    path('customer/payment-methods/<str:method_id>/', customer_payment_method_detail, name='customer_payment_method_detail'),
     path('customer/emergency-contacts/', customer_emergency_contacts, name='customer_emergency_contacts'),
-    path('customer/emergency-contacts/<uuid:contact_id>/', customer_emergency_contact_detail, name='customer_emergency_contact_detail'),
+    path('customer/emergency-contacts/<str:contact_id>/', customer_emergency_contact_detail, name='customer_emergency_contact_detail'),
 
     # Rides & Fare Engine
     path('rides/estimate-fare/', estimate_fare, name='estimate_fare'),

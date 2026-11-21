@@ -780,6 +780,13 @@ def saved_location_detail(request, location_id):
     if not customer:
         return Response({'error': 'Customer not found'}, status=status.HTTP_404_NOT_FOUND)
 
+    try:
+        uuid.UUID(str(location_id))
+    except (ValueError, AttributeError):
+        if request.method == 'DELETE':
+            return Response({'success': True, 'message': 'Location deleted'}, status=status.HTTP_200_OK)
+        return Response({'error': 'Location not found'}, status=status.HTTP_404_NOT_FOUND)
+
     loc = UserSavedLocation.objects.filter(id=location_id, user=customer).first()
     if not loc:
         return Response({'error': 'Location not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -1864,6 +1871,13 @@ def customer_payment_method_detail(request, method_id):
     if not customer:
         return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
+    try:
+        uuid.UUID(str(method_id))
+    except (ValueError, AttributeError):
+        if request.method == 'DELETE':
+            return Response({'success': True, 'message': 'Payment method removed'}, status=status.HTTP_200_OK)
+        return Response({'error': 'Payment method not found'}, status=status.HTTP_404_NOT_FOUND)
+
     method = UserSavedPaymentMethod.objects.filter(id=method_id, user=customer).first()
     if not method:
         return Response({'error': 'Payment method not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -1945,6 +1959,11 @@ def customer_emergency_contact_detail(request, contact_id):
     customer = get_request_customer(request)
     if not customer:
         return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    try:
+        uuid.UUID(str(contact_id))
+    except (ValueError, AttributeError):
+        return Response({'success': True, 'message': 'Emergency contact deleted'}, status=status.HTTP_200_OK)
 
     deleted_count, _ = EmergencyContact.objects.filter(id=contact_id, user=customer).delete()
     if deleted_count > 0:

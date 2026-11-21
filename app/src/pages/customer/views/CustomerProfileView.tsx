@@ -215,18 +215,41 @@ const CustomerProfileView: React.FC<CustomerProfileViewProps> = ({
     }
   };
 
-  const handleDeleteAddress = async (id: string) => {
-    Alert.alert('Delete Address', 'Are you sure you want to remove this saved address?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          await apiDelete(`/customer/locations/${id}/`);
-          loadLocations();
+  const confirmAction = (title: string, message: string, onConfirm: () => void | Promise<void>) => {
+    if (Platform.OS === 'web') {
+      const confirmed = typeof window !== 'undefined' ? window.confirm(`${title}\n\n${message}`) : true;
+      if (confirmed) {
+        onConfirm();
+      }
+    } else {
+      Alert.alert(title, message, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            onConfirm();
+          },
         },
-      },
-    ]);
+      ]);
+    }
+  };
+
+  const handleDeleteAddress = (id: string) => {
+    confirmAction('Delete Address', 'Are you sure you want to remove this saved address?', async () => {
+      // Optimistic state update so UI updates instantaneously
+      setSavedLocations((prev) => prev.filter((item) => item.id !== id));
+      try {
+        const res = await apiDelete(`/customer/locations/${id}/`);
+        if (res.error) {
+          console.warn('Error deleting address:', res.error);
+        }
+      } catch (err: any) {
+        console.error('Failed to delete address:', err);
+      } finally {
+        loadLocations();
+      }
+    });
   };
 
   // ── Payment Methods Handlers ──
@@ -300,18 +323,21 @@ const CustomerProfileView: React.FC<CustomerProfileViewProps> = ({
     }
   };
 
-  const handleDeletePaymentMethod = async (id: string) => {
-    Alert.alert('Remove Payment Method', 'Are you sure you want to remove this payment method?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: async () => {
-          await apiDelete(`/customer/payment-methods/${id}/`);
-          loadPayments();
-        },
-      },
-    ]);
+  const handleDeletePaymentMethod = (id: string) => {
+    confirmAction('Remove Payment Method', 'Are you sure you want to remove this payment method?', async () => {
+      // Optimistic state update so UI updates instantaneously
+      setSavedPayments((prev) => prev.filter((item) => item.id !== id));
+      try {
+        const res = await apiDelete(`/customer/payment-methods/${id}/`);
+        if (res.error) {
+          console.warn('Error deleting payment method:', res.error);
+        }
+      } catch (err: any) {
+        console.error('Failed to delete payment method:', err);
+      } finally {
+        loadPayments();
+      }
+    });
   };
 
   const handleSetDefaultPayment = async (id: string) => {
@@ -361,18 +387,21 @@ const CustomerProfileView: React.FC<CustomerProfileViewProps> = ({
     }
   };
 
-  const handleDeleteContact = async (id: string) => {
-    Alert.alert('Remove Contact', 'Are you sure you want to remove this emergency contact?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: async () => {
-          await apiDelete(`/customer/emergency-contacts/${id}/`);
-          loadEmergencyContacts();
-        },
-      },
-    ]);
+  const handleDeleteContact = (id: string) => {
+    confirmAction('Remove Contact', 'Are you sure you want to remove this emergency contact?', async () => {
+      // Optimistic state update so UI updates instantaneously
+      setEmergencyContacts((prev) => prev.filter((item) => item.id !== id));
+      try {
+        const res = await apiDelete(`/customer/emergency-contacts/${id}/`);
+        if (res.error) {
+          console.warn('Error deleting contact:', res.error);
+        }
+      } catch (err: any) {
+        console.error('Failed to delete contact:', err);
+      } finally {
+        loadEmergencyContacts();
+      }
+    });
   };
 
   // ── Edit Profile Save ──

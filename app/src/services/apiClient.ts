@@ -48,7 +48,12 @@ export async function apiGet<T>(endpoint: string, fallbackData: T): Promise<ApiR
     clearTimeout(timeoutId);
 
     if (response.ok) {
-      const data = await response.json();
+      let data: any = null;
+      try {
+        data = await response.json();
+      } catch {
+        data = { success: true };
+      }
       return { data, error: null, fromDb: true };
     } else {
       return {
