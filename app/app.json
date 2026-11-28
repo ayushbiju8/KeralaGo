@@ -10,10 +10,11 @@
     "ios": {
       "icon": "./assets/expo.icon",
       "config": {
-        "googleMapsApiKey": "$(EXPO_PUBLIC_GOOGLE_MAPS_API_KEY)"
+        "googleMapsApiKey": "AIzaSyAAvUnGPNnqkYWc6lUF4ktF6FF5KW66kZo"
       }
     },
     "android": {
+      "package": "com.keralago.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -23,7 +24,7 @@
       "predictiveBackGestureEnabled": false,
       "config": {
         "googleMaps": {
-          "apiKey": "$(EXPO_PUBLIC_GOOGLE_MAPS_API_KEY)"
+          "apiKey": "AIzaSyAAvUnGPNnqkYWc6lUF4ktF6FF5KW66kZo"
         }
       }
     },

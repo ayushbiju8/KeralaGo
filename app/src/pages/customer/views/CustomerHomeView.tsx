@@ -47,6 +47,7 @@ import {
   RideSelectionList,
   TripCompletedCard,
   RideOption,
+  RideChatModal,
 } from '../../../components/organisms';
 import { Colors, Spacing, Radii, Shadows } from '../../../constants/theme';
 import { customerData } from '../../../data';
@@ -58,6 +59,7 @@ import {
   PlacePrediction,
 } from '../../../services/googleMapsService';
 import { useAuth } from '../../../hooks/useAuth';
+import telemetrySocket, { DriverLocationUpdate, RideStatusUpdate } from '../../../services/telemetrySocket';
 import {
   requestRide,
   fetchRideDetail,
@@ -239,6 +241,14 @@ const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
   const [pinkCabModalVisible, setPinkCabModalVisible] = useState<boolean>(false);
   const [genderWarningModalVisible, setGenderWarningModalVisible] = useState<boolean>(false);
 
+  // Real-Time Telemetry Live Driver Coordinates from WebSocket
+  const [liveDriverCoords, setLiveDriverCoords] = useState<{
+    lat: number;
+    lng: number;
+    bearing?: number;
+    vehicleType?: 'car' | 'auto';
+  } | null>(null);
+
   // Cancellation Modal State
   const [cancelModalVisible, setCancelModalVisible] = useState<boolean>(false);
   const [cancelReason, setCancelReason] = useState<string>('Driver is taking too long');
@@ -398,7 +408,57 @@ const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
     }
   }, [stage, searchPulseAnim]);
 
-  // Poll real ride status from database while in ACTIVE_RIDE
+  // ── Live Telemetry WebSocket: Sync live driver location and ride lifecycle ──
+  useEffect(() => {
+    if (!activeRideDbId || (stage !== 'ACTIVE_RIDE' && stage !== 'SEARCHING_DRIVER')) return;
+
+    // Join dedicated ride channel
+    telemetrySocket.joinRide(activeRideDbId, 'customer');
+
+    // Subscribe to driver GPS location broadcasts
+    const unsubscribeLocation = telemetrySocket.onDriverLocationUpdate((update: DriverLocationUpdate) => {
+      if (update.coordinate) {
+        setLiveDriverCoords({
+          lat: update.coordinate.latitude,
+          lng: update.coordinate.longitude,
+          bearing: update.bearing,
+          vehicleType: selectedRideId === 'auto' ? 'auto' : 'car',
+        });
+      }
+    });
+
+    // Subscribe to instant status changes from driver or dispatch
+    const unsubscribeStatus = telemetrySocket.onRideStatusUpdate((update: RideStatusUpdate) => {
+      const remoteStatus = update.status;
+      if (remoteStatus === 'ACCEPTED' && stage === 'SEARCHING_DRIVER') {
+        setActiveRideStatus('ACCEPTED');
+        setDriverSearchStep(3);
+        setStage('ACTIVE_RIDE');
+      } else if (remoteStatus === 'DRIVER_ARRIVED' && activeRideStatus !== 'DRIVER_ARRIVED') {
+        setActiveRideStatus('DRIVER_ARRIVED');
+        Alert.alert(
+          'Driver Arrived! (ഡ്രൈവർ എത്തിക്കഴിഞ്ഞു)',
+          `Your driver ${assignedDriver.name} has arrived at your pickup point.\nShare Start PIN: ${activeRideOtpPin}`
+        );
+      } else if (remoteStatus === 'IN_PROGRESS' && activeRideStatus !== 'IN_PROGRESS') {
+        setActiveRideStatus('IN_PROGRESS');
+      } else if (remoteStatus === 'COMPLETED' && activeRideStatus !== 'COMPLETED') {
+        setActiveRideStatus('COMPLETED');
+        setStage('TRIP_COMPLETED');
+      } else if (remoteStatus === 'CANCELLED') {
+        Alert.alert('Trip Cancelled', 'This trip was cancelled by the driver or dispatch.');
+        setStage('IDLE');
+      }
+    });
+
+    return () => {
+      unsubscribeLocation();
+      unsubscribeStatus();
+      telemetrySocket.leaveRide(activeRideDbId);
+    };
+  }, [activeRideDbId, stage, activeRideStatus, assignedDriver, activeRideOtpPin, selectedRideId]);
+
+  // Fallback database polling while in ACTIVE_RIDE (ensures data sync even if offline)
   useEffect(() => {
     if (stage !== 'ACTIVE_RIDE' || !activeRideDbId) return;
 
@@ -427,7 +487,7 @@ const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
       } catch (e) {
         // Silently tolerate temporary polling errors
       }
-    }, 3000);
+    }, 4000);
 
     return () => {
       isMounted = false;
@@ -908,6 +968,7 @@ const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
         showVehicles={false}
         pickupLocation={pickupLocation}
         pickupCoords={pickupCoords}
+        driverCoords={stage === 'ACTIVE_RIDE' ? liveDriverCoords : null}
         activeDestination={
           stage === 'PIN_ON_MAP'
             ? (pinnedLocation?.title || selectedDestination)
@@ -2659,78 +2720,17 @@ const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
         </View>
       </Modal>
 
-      {/* ── Driver Quick Message / In-App Chat Modal ── */}
-      <Modal visible={driverChatModalVisible} transparent animationType="fade">
-        <View style={styles.modalBackdrop}>
-          <View style={styles.homeModalCard}>
-            <View style={styles.modalHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Avatar name={assignedDriver.name} src={assignedDriver.avatar} size="sm" />
-                <View style={{ marginLeft: 10 }}>
-                  <Typography variant="body1" weight="bold" color="#0F172A">
-                    Message {assignedDriver.name}
-                  </Typography>
-                  <Typography variant="xs" color="#16A34A">
-                    Online • Driver is on the way
-                  </Typography>
-                </View>
-              </View>
-              <TouchableOpacity onPress={() => setDriverChatModalVisible(false)}>
-                <Icon library="Ionicons" name="close" size={22} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-
-            <Typography variant="caption" weight="bold" color="#64748B" style={{ marginBottom: 8 }}>
-              QUICK MESSAGES
-            </Typography>
-
-            <View style={{ gap: 8, marginBottom: 12 }}>
-              {[
-                "I'm waiting at the pickup spot",
-                'Please turn on the AC',
-                'Coming down in 1 minute',
-                'Please call when you reach the gate',
-              ].map((msg) => (
-                <TouchableOpacity
-                  key={msg}
-                  style={styles.chatQuickChip}
-                  onPress={() => handleSendDriverMessage(msg)}
-                  activeOpacity={0.7}
-                >
-                  <Icon library="Ionicons" name="chatbubble-outline" size={15} color="#0F4A2B" />
-                  <Typography variant="body2" color="#0F172A" style={{ marginLeft: 8, flex: 1 }}>
-                    {msg}
-                  </Typography>
-                  <Icon library="Ionicons" name="send-outline" size={15} color="#16A34A" />
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {chatMessages.length > 0 && (
-              <View style={styles.chatHistoryBox}>
-                <Typography variant="xs" weight="bold" color="#64748B" style={{ marginBottom: 4 }}>
-                  Sent Messages:
-                </Typography>
-                {chatMessages.map((m, idx) => (
-                  <View key={idx} style={styles.chatBubbleSent}>
-                    <Typography variant="caption" color="#0F4A2B">
-                      ✓ {m}
-                    </Typography>
-                  </View>
-                ))}
-              </View>
-            )}
-
-            <Button
-              label="Close"
-              variant="outline"
-              size="md"
-              fullWidth
-              onPress={() => setDriverChatModalVisible(false)}
-            />
-          </View>
-        </View>
-      </Modal>
+      {/* ── Real-Time Driver In-App Chat Modal ── */}
+      <RideChatModal
+        visible={driverChatModalVisible}
+        rideId={activeRideDbId || 'active_trip'}
+        recipientName={assignedDriver.name}
+        recipientRole="driver"
+        recipientAvatar={assignedDriver.avatar}
+        currentUserId={user?.id}
+        isCurrentUserDriver={false}
+        onClose={() => setDriverChatModalVisible(false)}
+      />
     </View>
   );
 };

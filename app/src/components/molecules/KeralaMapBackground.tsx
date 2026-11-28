@@ -20,6 +20,21 @@ const GOOGLE_MAPS_API_KEY =
   process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
   'AIzaSyAAvUnGPNnqkYWc6lUF4ktF6FF5KW66kZo';
 
+let NativeMapView: any = null;
+let NativeMarker: any = null;
+let NativePolyline: any = null;
+
+if (Platform.OS !== 'web') {
+  try {
+    const maps = require('react-native-maps');
+    NativeMapView = maps.default || maps.MapView;
+    NativeMarker = maps.Marker;
+    NativePolyline = maps.Polyline;
+  } catch (err) {
+    console.warn('[KeralaMapBackground] react-native-maps not loaded:', err);
+  }
+}
+
 export interface LocationPoint {
   title: string;
   lat: number;
@@ -215,6 +230,8 @@ export interface KeralaMapBackgroundProps {
   pinnedPoint?: LocationPoint | null;
   destinationPoint?: LocationPoint | null;
   destinationCoords?: { lat: number; lng: number } | null;
+  /** Live real-time driver GPS coordinates streaming from telemetry socket */
+  driverCoords?: { lat: number; lng: number; bearing?: number; vehicleType?: 'car' | 'auto' | 'bike' } | null;
 }
 
 /**
@@ -304,11 +321,13 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
   pinnedPoint = null,
   destinationPoint = null,
   destinationCoords = null,
+  driverCoords = null,
 }) => {
   const mapDivRef = useRef<any>(null);
   const googleMapInstance = useRef<any>(null);
   const pickupMarkerRef = useRef<any>(null);
   const destMarkerRef = useRef<any>(null);
+  const driverMarkerRef = useRef<any>(null);
   const directionsServiceRef = useRef<any>(null);
   const directionsRendererRef = useRef<any>(null);
   const routePolylineRef = useRef<any>(null);
@@ -463,6 +482,55 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
         anchor: new google.maps.Point(30, 50),
       },
     });
+
+    // ── Live Moving Driver Vehicle Marker from Telemetry WebSocket ──
+    if (driverCoords && googleMapInstance.current) {
+      const dPos = new google.maps.LatLng(driverCoords.lat, driverCoords.lng);
+      const bearing = Math.round(driverCoords.bearing || 0);
+      const driverVehicleSvg = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+<svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="carGlow" x="0" y="0" width="44" height="44" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <g filter="url(#carGlow)" transform="rotate(${bearing}, 22, 22)">
+    <circle cx="22" cy="22" r="19" fill="#10B981" fill-opacity="0.2"/>
+    <rect x="13.5" y="7" width="17" height="30" rx="8.5" fill="#047857"/>
+    <rect x="15" y="8.5" width="14" height="27" rx="7" fill="#10B981"/>
+    <path d="M16 14 L28 14 L26 18 L18 18 Z" fill="#064E3B"/>
+    <rect x="17" y="19.5" width="10" height="7" rx="2" fill="#F8FAFC"/>
+    <path d="M17 28 L27 28 L26 31 L18 31 Z" fill="#064E3B"/>
+    <circle cx="16" cy="8" r="1.5" fill="#FEF08A"/>
+    <circle cx="28" cy="8" r="1.5" fill="#FEF08A"/>
+  </g>
+</svg>
+`)}`;
+
+      if (driverMarkerRef.current) {
+        driverMarkerRef.current.setPosition(dPos);
+        driverMarkerRef.current.setIcon({
+          url: driverVehicleSvg,
+          scaledSize: new google.maps.Size(44, 44),
+          anchor: new google.maps.Point(22, 22),
+        });
+      } else {
+        driverMarkerRef.current = new google.maps.Marker({
+          position: dPos,
+          map: googleMapInstance.current,
+          title: 'Assigned Driver Vehicle',
+          zIndex: 25,
+          icon: {
+            url: driverVehicleSvg,
+            scaledSize: new google.maps.Size(44, 44),
+            anchor: new google.maps.Point(22, 22),
+          },
+        });
+      }
+    } else if (driverMarkerRef.current) {
+      driverMarkerRef.current.setMap(null);
+      driverMarkerRef.current = null;
+    }
 
     if (isPinMode) {
       // In pin mode, map centers on selected/pinned spot under the interactive center pin
@@ -792,33 +860,35 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
       }
     };
 
-    const google = (globalThis as any).google;
-    if (google?.maps?.Map) {
-      initMap();
-    } else {
-      const scriptId = 'google-maps-sdk-script';
-      let script = document.getElementById(scriptId) as HTMLScriptElement;
+    if (Platform.OS === 'web') {
+      const google = (globalThis as any).google;
+      if (google?.maps?.Map) {
+        initMap();
+      } else {
+        const scriptId = 'google-maps-sdk-script';
+        let script = document.getElementById(scriptId) as HTMLScriptElement;
 
-      if (!script) {
-        script = document.createElement('script');
-        script.id = scriptId;
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,geometry,marker`;
-        script.async = true;
-        script.defer = true;
-        document.head.appendChild(script);
-      }
-
-      script.addEventListener('load', checkAndInit);
-
-      // Safe polling in case script loaded before event listener was attached
-      const pollInterval = setInterval(() => {
-        if ((globalThis as any).google?.maps?.Map) {
-          clearInterval(pollInterval);
-          initMap();
+        if (!script) {
+          script = document.createElement('script');
+          script.id = scriptId;
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,geometry,marker`;
+          script.async = true;
+          script.defer = true;
+          document.head.appendChild(script);
         }
-      }, 150);
 
-      setTimeout(() => clearInterval(pollInterval), 8000);
+        script.addEventListener('load', checkAndInit);
+
+        // Safe polling in case script loaded before event listener was attached
+        const pollInterval = setInterval(() => {
+          if ((globalThis as any).google?.maps?.Map) {
+            clearInterval(pollInterval);
+            initMap();
+          }
+        }, 150);
+
+        setTimeout(() => clearInterval(pollInterval), 8000);
+      }
     }
 
     return () => {
@@ -854,10 +924,14 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
         destMarkerRef.current.setMap(null);
         destMarkerRef.current = null;
       }
+      if (driverMarkerRef.current) {
+        driverMarkerRef.current.setMap(null);
+        driverMarkerRef.current = null;
+      }
     };
   }, []);
 
-  // Update route and cursor on prop change
+  // Update route, driver position and cursor on prop change
   useEffect(() => {
     if (googleMapInstance.current) {
       googleMapInstance.current.setOptions({
@@ -865,7 +939,7 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
       });
     }
     syncGoogleMapRoute();
-  }, [activeDestination, pickupLocation, pickupCoords, pinnedPoint, destinationPoint, destinationCoords, isPinMode]);
+  }, [activeDestination, pickupLocation, pickupCoords, pinnedPoint, destinationPoint, destinationCoords, isPinMode, driverCoords]);
 
   return (
     <View
@@ -875,28 +949,80 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
         style,
       ]}
     >
-      {/* ── Base Styled Terrain Background (Ensures zero blank flash) ── */}
-      <View style={styles.baseTerrain}>
-        <View style={[styles.greenParcel, { top: SCREEN_HEIGHT * 0.04 + offsetY, left: -20, width: 150, height: 120, borderRadius: 32 }]} />
-        <View style={[styles.greenParcel, { top: SCREEN_HEIGHT * 0.12 + offsetY, left: SCREEN_WIDTH * 0.22, width: 130, height: 100, borderRadius: 28 }]} />
-        <View style={[styles.greenParcel, { top: SCREEN_HEIGHT * 0.22 + offsetY, left: SCREEN_WIDTH * 0.05, width: 140, height: 130, borderRadius: 32 }]} />
-        <View style={[styles.riverCurveMain, { top: -20 + offsetY }]} />
-        <View style={[styles.kozhippillyRoad, { top: SCREEN_HEIGHT * 0.10 + offsetY }]}>
-          <Text style={styles.roadLabelText}>Kozhippilly - College Junction Rd</Text>
-        </View>
-        <View style={[styles.riverBridge, { top: SCREEN_HEIGHT * 0.14 + offsetY }]} />
-        <View style={[styles.riverBankRoad, { top: -30 + offsetY }]} />
-        <View style={[styles.roadResidential1, { top: SCREEN_HEIGHT * 0.16 + offsetY }]} />
-        <View style={[styles.roadResidential2, { top: SCREEN_HEIGHT * 0.23 + offsetY }]} />
-        <View style={[styles.roadResidential3, { top: SCREEN_HEIGHT * 0.28 + offsetY }]} />
-      </View>
+      {/* ── Native Google Map on Mobile (requires development build; Expo Go uses styled fallback below) ── */}
+      {Platform.OS !== 'web' && NativeMapView && !(Constants as any)?.expoGoConfig ? (
+        <NativeMapView
+          loadingEnabled={true}
+          style={StyleSheet.absoluteFill}
+          initialRegion={{
+            latitude: pickupPoint?.lat || 10.0538,
+            longitude: pickupPoint?.lng || 76.6192,
+            latitudeDelta: 0.035,
+            longitudeDelta: 0.035,
+          }}
+          showsUserLocation={true}
+          showsMyLocationButton={false}
+          showsCompass={false}
+          onPress={(e: any) => {
+            const coord = e?.nativeEvent?.coordinate;
+            if (coord && onMapClick) {
+              onMapClick({
+                title: 'Selected Pin',
+                subtitle: `Lat: ${coord.latitude.toFixed(4)}, Lng: ${coord.longitude.toFixed(4)}`,
+                lat: coord.latitude,
+                lng: coord.longitude,
+              });
+            }
+          }}
+        >
+          {pickupPoint && (
+            <NativeMarker
+              coordinate={{ latitude: pickupPoint.lat, longitude: pickupPoint.lng }}
+              title={pickupLocation || 'Pickup Point'}
+              pinColor="#10B981"
+            />
+          )}
+          {destPoint && (
+            <NativeMarker
+              coordinate={{ latitude: destPoint.lat, longitude: destPoint.lng }}
+              title={destPoint.title || 'Destination'}
+              pinColor="#DC2626"
+            />
+          )}
+          {driverCoords && (
+            <NativeMarker
+              coordinate={{ latitude: driverCoords.lat, longitude: driverCoords.lng }}
+              title="Driver"
+              pinColor="#065F46"
+            />
+          )}
+        </NativeMapView>
+      ) : (
+        <>
+          {/* ── Base Styled Terrain Background (Fallback / Web) ── */}
+          <View style={styles.baseTerrain}>
+            <View style={[styles.greenParcel, { top: SCREEN_HEIGHT * 0.04 + offsetY, left: -20, width: 150, height: 120, borderRadius: 32 }]} />
+            <View style={[styles.greenParcel, { top: SCREEN_HEIGHT * 0.12 + offsetY, left: SCREEN_WIDTH * 0.22, width: 130, height: 100, borderRadius: 28 }]} />
+            <View style={[styles.greenParcel, { top: SCREEN_HEIGHT * 0.22 + offsetY, left: SCREEN_WIDTH * 0.05, width: 140, height: 130, borderRadius: 32 }]} />
+            <View style={[styles.riverCurveMain, { top: -20 + offsetY }]} />
+            <View style={[styles.kozhippillyRoad, { top: SCREEN_HEIGHT * 0.10 + offsetY }]}>
+              <Text style={styles.roadLabelText}>Kozhippilly - College Junction Rd</Text>
+            </View>
+            <View style={[styles.riverBridge, { top: SCREEN_HEIGHT * 0.14 + offsetY }]} />
+            <View style={[styles.riverBankRoad, { top: -30 + offsetY }]} />
+            <View style={[styles.roadResidential1, { top: SCREEN_HEIGHT * 0.16 + offsetY }]} />
+            <View style={[styles.roadResidential2, { top: SCREEN_HEIGHT * 0.23 + offsetY }]} />
+            <View style={[styles.roadResidential3, { top: SCREEN_HEIGHT * 0.28 + offsetY }]} />
+          </View>
 
-      {/* ── Real Live Google Map Container on Web ── */}
-      {Platform.OS === 'web' && (
-        <View
-          ref={mapDivRef}
-          style={styles.googleMapDiv}
-        />
+          {/* ── Real Live Google Map Container on Web ── */}
+          {Platform.OS === 'web' && (
+            <View
+              ref={mapDivRef}
+              style={styles.googleMapDiv}
+            />
+          )}
+        </>
       )}
 
       {/* ── Uber & Rapido Fixed Interactive Center Pin ── */}

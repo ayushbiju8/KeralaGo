@@ -7,16 +7,17 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { apiGet } from '../../services/apiClient';
+import { apiGet, apiPost } from '../../services/apiClient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Typography,
   Card,
   Icon,
   ShimmerImage,
+  Button,
 } from '../../components/atoms';
 import { InfoRow } from '../../components/molecules';
-import { NavigationHeader } from '../../components/organisms';
+import { NavigationHeader, DocumentVerificationRow } from '../../components/organisms';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 
 export interface DriverVehicleDetailsPageProps {
@@ -28,18 +29,31 @@ const DriverVehicleDetailsPage: React.FC<DriverVehicleDetailsPageProps> = ({
 }) => {
   const [vehicleData, setVehicleData] = useState<any>(null);
   const [complianceData, setComplianceData] = useState<any>(null);
+  const [documents, setDocuments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  const loadDocuments = () => {
+    apiGet<any[]>('/driver/documents/', []).then((res) => {
+      if (res.data) setDocuments(res.data);
+    }).catch(() => {});
+  };
 
   useEffect(() => {
     let isMounted = true;
-    apiGet<any>('/driver/vehicle/', null).then((res) => {
+    Promise.all([
+      apiGet<any>('/driver/vehicle/', null),
+      apiGet<any[]>('/driver/documents/', []),
+    ]).then(([vehRes, docRes]) => {
       if (isMounted) {
-        if (res.data && res.data.vehicle) {
-          setVehicleData(res.data.vehicle);
-          setComplianceData(res.data.compliance);
+        if (vehRes.data && vehRes.data.vehicle) {
+          setVehicleData(vehRes.data.vehicle);
+          setComplianceData(vehRes.data.compliance);
         } else {
           setVehicleData(null);
           setComplianceData(null);
+        }
+        if (docRes.data) {
+          setDocuments(docRes.data);
         }
         setIsLoading(false);
       }
@@ -52,8 +66,45 @@ const DriverVehicleDetailsPage: React.FC<DriverVehicleDetailsPageProps> = ({
     return () => { isMounted = false; };
   }, []);
 
+  const handleUploadDocument = (docType: string) => {
+    Alert.alert(
+      'Upload Document',
+      `Upload new proof for ${docType.replace('_', ' ')}:`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Upload from Camera/Files',
+          onPress: async () => {
+            try {
+              const res = await apiPost<any>('/driver/documents/', {
+                documentType: docType,
+                fileUrl: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=600',
+              });
+              if (res.data?.success) {
+                Alert.alert('Upload Submitted ✅', `${docType} uploaded successfully. Awaiting Admin verification.`);
+                loadDocuments();
+              }
+            } catch (err: any) {
+              Alert.alert('Upload Error', err?.message || 'Failed to submit document');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleEditPress = () => {
-    Alert.alert('Vehicle Documents', 'To register or update vehicle details, submit verification documents to Kerala MVD portal.');
+    Alert.alert(
+      'Driver KYC Verification',
+      'Select document to upload or update:',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Driving License', onPress: () => handleUploadDocument('DRIVING_LICENSE') },
+        { text: 'Vehicle RC Book', onPress: () => handleUploadDocument('RC') },
+        { text: 'Commercial Insurance', onPress: () => handleUploadDocument('INSURANCE') },
+        { text: 'Pollution Certificate (PUC)', onPress: () => handleUploadDocument('POLICE_CLEARANCE') },
+      ]
+    );
   };
 
   return (
@@ -166,6 +217,47 @@ const DriverVehicleDetailsPage: React.FC<DriverVehicleDetailsPageProps> = ({
                 }
                 showDivider={false}
               />
+            </Card>
+
+            {/* ── KYC Compliance Documents Section ── */}
+            <View style={{ paddingHorizontal: Spacing.base, marginTop: Spacing.lg, marginBottom: Spacing.sm }}>
+              <Typography variant="body1" weight="bold" color={Colors.textPrimary}>
+                KYC & Compliance Documents
+              </Typography>
+              <Typography variant="caption" color={Colors.textSecondary}>
+                Mandatory Kerala MVD verified certificates
+              </Typography>
+            </View>
+
+            <Card style={styles.detailsCard}>
+              {documents.length > 0 ? (
+                documents.map((doc, idx) => (
+                  <TouchableOpacity
+                    key={doc.type || idx}
+                    activeOpacity={0.8}
+                    onPress={() => handleUploadDocument(doc.type)}
+                  >
+                    <DocumentVerificationRow
+                      label={doc.title}
+                      status={doc.status === 'APPROVED' ? 'verified' : (doc.status === 'PENDING' ? 'pending' : 'rejected')}
+                      showDivider={idx < documents.length - 1}
+                    />
+                  </TouchableOpacity>
+                ))
+              ) : (
+                <View style={{ paddingVertical: 18, alignItems: 'center' }}>
+                  <Typography variant="caption" color={Colors.textMuted}>
+                    No documents uploaded yet. Tap below to upload.
+                  </Typography>
+                  <Button
+                    label="Upload KYC Documents"
+                    variant="outline"
+                    size="sm"
+                    onPress={handleEditPress}
+                    style={{ marginTop: 10 }}
+                  />
+                </View>
+              )}
             </Card>
           </>
         )}

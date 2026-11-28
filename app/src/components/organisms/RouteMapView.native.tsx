@@ -12,7 +12,7 @@
 
 import React, { useEffect, useRef, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
-import MapView, { Polyline, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Polyline, Marker } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Shadows } from '../../constants/theme';
 import { decodePolyline, LatLng } from '../../utils/decodePolyline';
@@ -118,7 +118,7 @@ export const RouteMapView: React.FC<RouteMapViewProps> = ({
     <View style={styles.container}>
       <MapView
         ref={mapRef}
-        provider={PROVIDER_GOOGLE}
+        loadingEnabled={true}
         customMapStyle={KERALA_MAP_STYLE}
         style={StyleSheet.absoluteFill}
         initialRegion={initialRegion}

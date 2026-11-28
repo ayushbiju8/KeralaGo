@@ -1,19 +1,8 @@
 import { Platform } from 'react-native';
 import { User, UserRole } from '../types/user';
-import { setAuthToken, getAuthToken } from './apiClient';
+import { setAuthToken, getAuthToken, API_BASE_URL } from './apiClient';
 
-// Determine default API host depending on platform
-const getBaseApiUrl = (): string => {
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
-  }
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:8000/api';
-  }
-  return 'http://localhost:8000/api';
-};
-
-const API_BASE = getBaseApiUrl();
+const API_BASE = API_BASE_URL;
 
 export interface SendOtpParams {
   mode?: 'LOGIN' | 'REGISTER';

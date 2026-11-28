@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { fetchCustomerDashboard } from '../../../services/tripService';
+import { fetchCustomerDashboard, topUpWallet } from '../../../services/tripService';
+import { apiPost } from '../../../services/apiClient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Typography,
@@ -27,12 +28,73 @@ const CustomerWalletView: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 350);
-    return () => clearTimeout(timer);
+    let isMounted = true;
+    fetchCustomerDashboard()
+      .then((res) => {
+        if (isMounted && res.data?.wallet) {
+          if (typeof res.data.wallet.balance === 'number') {
+            setBalance(res.data.wallet.balance);
+          }
+          if (Array.isArray(res.data.wallet.transactions) && res.data.wallet.transactions.length > 0) {
+            setTransactions(res.data.wallet.transactions);
+          }
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handleAddMoney = () => {
-    Alert.alert('Add Money to Wallet', 'UPI Top-Up gateway will open for KeralaGO Wallet.');
+    Alert.alert(
+      'Top-Up KeralaGO Wallet',
+      'Select top-up amount via Razorpay / UPI Intent (GPay, PhonePe, Paytm):',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: '+ ₹200',
+          onPress: () => executeTopUp(200),
+        },
+        {
+          text: '+ ₹500',
+          onPress: () => executeTopUp(500),
+        },
+        {
+          text: '+ ₹1,000',
+          onPress: () => executeTopUp(1000),
+        },
+      ]
+    );
+  };
+
+  const executeTopUp = async (amount: number) => {
+    try {
+      const orderRes = await apiPost<any>('/payments/create-order/', { amount });
+      const topUpRes = await topUpWallet(amount);
+      if (topUpRes.data?.success) {
+        setBalance(topUpRes.data.new_balance);
+        setTransactions((prev) => [
+          {
+            id: `tx_${Date.now()}`,
+            title: `UPI Top-Up (${orderRes.data?.orderId || 'Razorpay'})`,
+            date: 'Just now',
+            amount: `+₹${amount.toFixed(2)}`,
+            isCredit: true,
+          },
+          ...prev,
+        ]);
+        Alert.alert(
+          'Wallet Recharged! 💳',
+          `₹${amount} added successfully to your KeralaGO Wallet.\nOrder: ${orderRes.data?.orderId || 'Complete'}`
+        );
+      }
+    } catch (err: any) {
+      Alert.alert('Top-up Error', err?.message || 'Could not initiate UPI payment');
+    }
   };
 
   return (
