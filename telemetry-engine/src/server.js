@@ -44,6 +44,47 @@ app.get('/health', (req, res) => {
 // Phase 2: Route Calculation Endpoint
 app.post('/api/routes/calculate', calculateRoute);
 
+// Real-Time Dispatch Endpoint (Called by Django backend upon ride request)
+app.post('/api/rides/dispatch', (req, res) => {
+  const payload = req.body;
+  console.log(`[TelemetryServer] Dispatched ride offer:`, payload.displayId || payload.rideId);
+
+  // Broadcast dispatch offer to all connected drivers or specific driver room
+  if (payload.driverId) {
+    io.to(`driver:${payload.driverId}`).emit('driver:ride_offer', payload);
+  }
+  io.emit('driver:ride_offer', payload);
+
+  res.json({ success: true, message: 'Ride dispatched to driver partner pool' });
+});
+
+// Real-Time Ride Status Sync Endpoint
+app.post('/api/rides/status-update', (req, res) => {
+  const { rideId, status, driverId, driverName } = req.body;
+  console.log(`[TelemetryServer] Ride ${rideId} status changed to ${status}`);
+
+  if (rideId) {
+    io.to(`ride:${rideId}`).emit('ride:status_update', {
+      rideId,
+      status,
+      driverId,
+      driverName,
+      timestamp: Date.now(),
+    });
+  }
+
+  res.json({ success: true, message: 'Status update broadcasted' });
+});
+
+// Real-Time Ride Chat Broadcast Endpoint (Called by Django backend)
+app.post('/api/rides/chat', (req, res) => {
+  const { rideId, message } = req.body;
+  if (rideId && message) {
+    io.to(`ride:${rideId}`).emit('ride:chat_message', { rideId, message });
+  }
+  res.json({ success: true, message: 'Chat message broadcasted' });
+});
+
 const PORT = process.env.PORT || 5001;
 
 server.listen(PORT, () => {

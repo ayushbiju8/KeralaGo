@@ -9,14 +9,15 @@
  */
 
 import { Platform } from 'react-native';
-import { LatLng } from '../utils/decodePolyline';
+import * as Location from 'expo-location';
+import { LatLng, decodePolyline } from '../utils/decodePolyline';
+import { TELEMETRY_SERVER_URL } from './telemetrySocket';
 
 export const GOOGLE_MAPS_API_KEY =
   process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
   'AIzaSyAAvUnGPNnqkYWc6lUF4ktF6FF5KW66kZo';
 
-export const BACKEND_URL =
-  process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+export const BACKEND_URL = TELEMETRY_SERVER_URL;
 
 export interface PlacePrediction {
   placeId: string;
@@ -115,7 +116,6 @@ export async function getCurrentGPSLocation(): Promise<{
   // ── Native (Android / iOS): Use expo-location for real hardware GPS ──
   if (Platform.OS !== 'web') {
     try {
-      const Location = await import('expo-location');
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
         const pos = await Location.getCurrentPositionAsync({
@@ -510,7 +510,6 @@ export async function calculateDrivingRoute(
           const encoded = route.polyline?.encodedPolyline || '';
 
           // Decode the encoded polyline into {lat, lng} path
-          const { decodePolyline } = await import('../utils/decodePolyline');
           const decoded = decodePolyline(encoded);
           const path = decoded.map((c) => ({ lat: c.latitude, lng: c.longitude }));
 

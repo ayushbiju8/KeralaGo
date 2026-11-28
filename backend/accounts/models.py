@@ -276,6 +276,12 @@ class UserProfile(models.Model):
         default=0.00,
         help_text="Green eco-miles logged on electric/low-emission rides"
     )
+    push_token = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="Expo or FCM push notification token for device background alerts"
+    )
     created_at = models.DateTimeField(
         auto_now_add=True
     )

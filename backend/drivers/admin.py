@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import DriverProfile, DriverCurrentLocation, DriverDocument
+from django.utils import timezone
+from .models import DriverProfile, DriverCurrentLocation, DriverDocument, ApprovalStatus
 
 
 class DriverDocumentInline(admin.TabularInline):
@@ -24,6 +25,19 @@ class DriverProfileAdmin(admin.ModelAdmin):
     ordering = ("-created_at",)
     readonly_fields = ("id", "created_at", "updated_at")
     inlines = [DriverCurrentLocationInline, DriverDocumentInline]
+    actions = ["approve_selected_drivers", "suspend_selected_drivers"]
+
+    @admin.action(description="Approve selected drivers for hailing")
+    def approve_selected_drivers(self, request, queryset):
+        queryset.update(
+            approval_status=ApprovalStatus.APPROVED,
+            approved_by=request.user,
+            approved_at=timezone.now()
+        )
+
+    @admin.action(description="Reject / Suspend selected drivers")
+    def suspend_selected_drivers(self, request, queryset):
+        queryset.update(approval_status=ApprovalStatus.REJECTED, is_online=False)
 
 
 @admin.register(DriverCurrentLocation)
@@ -40,3 +54,21 @@ class DriverDocumentAdmin(admin.ModelAdmin):
     search_fields = ("driver__user__mobile_number", "document_number")
     readonly_fields = ("id", "created_at", "updated_at")
     ordering = ("-created_at",)
+    actions = ["approve_selected_documents", "reject_selected_documents"]
+
+    @admin.action(description="Approve selected KYC documents")
+    def approve_selected_documents(self, request, queryset):
+        queryset.update(
+            review_status=ApprovalStatus.APPROVED,
+            reviewed_by=request.user,
+            reviewed_at=timezone.now()
+        )
+
+    @admin.action(description="Reject selected KYC documents")
+    def reject_selected_documents(self, request, queryset):
+        queryset.update(
+            review_status=ApprovalStatus.REJECTED,
+            reviewed_by=request.user,
+            reviewed_at=timezone.now(),
+            rejection_reason="Admin manual review rejected"
+        )

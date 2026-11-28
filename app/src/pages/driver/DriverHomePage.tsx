@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { apiGet } from '../../services/apiClient';
+import { apiGet, apiPost } from '../../services/apiClient';
+import { updateRideStatus } from '../../services/tripService';
+import telemetrySocket, { IncomingRideOffer } from '../../services/telemetrySocket';
 import {
   View,
   StyleSheet,
@@ -59,6 +61,8 @@ const DriverHomePage: React.FC<DriverHomePageProps> = ({
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [showIncomingModal, setShowIncomingModal] = useState<boolean>(false);
   const [dashboardData, setDashboardData] = useState<any>(null);
+  const [activeOffer, setActiveOffer] = useState<IncomingRideOffer | null>(null);
+  const [activeRideDbId, setActiveRideDbId] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -70,6 +74,74 @@ const DriverHomePage: React.FC<DriverHomePageProps> = ({
     return () => { isMounted = false; };
   }, []);
 
+  const isOnline = user?.isOnline ?? true;
+
+  // Real-Time Telemetry & Dispatch Listener for Driver Partner
+  useEffect(() => {
+    if (!isOnline) return;
+
+    const driverId = user?.id || 'driver_default';
+    telemetrySocket.registerDriver(driverId);
+
+    // Listen for real incoming ride dispatches via WebSocket
+    const unsubscribeOffer = telemetrySocket.onIncomingRideOffer((offer: IncomingRideOffer) => {
+      setActiveOffer(offer);
+      setActiveRideDbId(offer.rideId);
+      setShowIncomingModal(true);
+    });
+
+    // Also poll backend for pending requested rides
+    const pollTimer = setInterval(async () => {
+      if (!showIncomingModal && !activeRideDbId) {
+        try {
+          const res = await apiGet<any>('/driver/incoming-ride/', null);
+          if (res.data?.pendingOffer) {
+            const offer = res.data.pendingOffer;
+            setActiveOffer({
+              rideId: offer.dbId,
+              displayId: offer.rideId,
+              pickup: offer.pickup,
+              destination: offer.destination,
+              fare: offer.fare,
+              category: offer.category,
+              distanceKm: offer.distanceKm,
+              durationMins: offer.durationMins,
+            });
+            setActiveRideDbId(offer.dbId);
+            setShowIncomingModal(true);
+          }
+        } catch {}
+      }
+    }, 4500);
+
+    return () => {
+      unsubscribeOffer();
+      clearInterval(pollTimer);
+    };
+  }, [isOnline, user?.id, showIncomingModal, activeRideDbId]);
+
+  // Ping live driver GPS coordinates to Telemetry Engine while online or during active ride
+  useEffect(() => {
+    if (!isOnline) return;
+
+    const driverId = user?.id || 'driver_default';
+    const interval = setInterval(() => {
+      // Near MACE / Kothamangalam simulation coordinates
+      const lat = 10.0538 + (Math.random() - 0.5) * 0.002;
+      const lng = 76.6192 + (Math.random() - 0.5) * 0.002;
+      telemetrySocket.sendDriverPing({
+        driverId,
+        rideId: activeRideDbId || undefined,
+        latitude: lat,
+        longitude: lng,
+        bearing: Math.floor(Math.random() * 360),
+        speed: 28,
+      });
+    }, 3500);
+
+    return () => clearInterval(interval);
+  }, [isOnline, user?.id, activeRideDbId]);
+
   const handleTabSelect = (tabId: string) => {
     setInternalTab(tabId);
     if (onNavigateTab) {
@@ -77,19 +149,38 @@ const DriverHomePage: React.FC<DriverHomePageProps> = ({
     }
   };
 
-  const isOnline = user?.isOnline ?? true;
-
-  const handleAcceptRide = () => {
-    // Proceed into navigation simulation stages ('arriving' -> 'arrived' -> 'on_trip' -> 'completed')
+  const handleAcceptRide = async () => {
+    if (activeRideDbId) {
+      try {
+        await apiPost(`/rides/${activeRideDbId}/accept/`, {});
+      } catch {}
+      telemetrySocket.acceptRideOffer(activeRideDbId, user?.id || 'driver_default', user?.name || 'Driver');
+    }
   };
 
-  const handleDeclineRide = () => {
+  const handleDeclineRide = async () => {
+    if (activeRideDbId) {
+      try {
+        await apiPost(`/rides/${activeRideDbId}/reject/`, {});
+      } catch {}
+      telemetrySocket.declineRideOffer(activeRideDbId, user?.id || 'driver_default');
+    }
     setShowIncomingModal(false);
+    setActiveOffer(null);
+    setActiveRideDbId(null);
   };
 
-  const handleCompleteRide = () => {
+  const handleCompleteRide = async () => {
+    if (activeRideDbId) {
+      try {
+        await updateRideStatus(activeRideDbId, { status: 'COMPLETED' });
+      } catch {}
+    }
+    const creditedFare = activeOffer?.fare || 120;
     setShowIncomingModal(false);
-    Alert.alert('Trip Completed! 🎉', '₹120 has been credited to your daily earnings.');
+    setActiveOffer(null);
+    setActiveRideDbId(null);
+    Alert.alert('Trip Completed! 🎉', `₹${creditedFare} has been credited to your daily earnings.`);
   };
 
   const handleFuelPress = () => {
@@ -420,21 +511,21 @@ const DriverHomePage: React.FC<DriverHomePageProps> = ({
         style={styles.bottomTabBar}
       />
 
-      {/* ── Incoming Ride Request Simulator Modal ── */}
+      {/* ── Incoming Ride Request Modal (Synced via Telemetry WebSocket & Backend) ── */}
       <RideRequestModal
         visible={showIncomingModal}
-        pickup="M B Hostel"
-        pickupSub="MACE Hostels Road, Kothamangalam"
-        dropoff="Mar Athanasius College"
-        dropoffSub="College Jn, Kothamangalam"
-        distanceKm={2.8}
-        estimatedFare={120}
-        etaMinutes={5}
-        pickupTimeMinutes={5}
-        passengerName="Devarth"
-        passengerRating={4.8}
-        passengerTrips={32}
-        countdownSeconds={20}
+        pickup={activeOffer?.pickup?.title || activeOffer?.pickup?.address || 'M B Hostel'}
+        pickupSub={activeOffer?.pickup?.address || 'MACE Hostels Road, Kothamangalam'}
+        dropoff={activeOffer?.destination?.title || activeOffer?.destination?.address || 'Mar Athanasius College'}
+        dropoffSub={activeOffer?.destination?.address || 'College Jn, Kothamangalam'}
+        distanceKm={activeOffer?.distanceKm || 2.8}
+        estimatedFare={activeOffer?.fare || 120}
+        etaMinutes={activeOffer?.durationMins || 5}
+        pickupTimeMinutes={4}
+        passengerName="Passenger"
+        passengerRating={4.9}
+        passengerTrips={16}
+        countdownSeconds={15}
         onAccept={handleAcceptRide}
         onDecline={handleDeclineRide}
         onComplete={handleCompleteRide}

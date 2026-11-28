@@ -36,3 +36,6 @@ export type { AnimatedCarMarkerProps } from './AnimatedCarMarker';
 
 export { default as RouteMapView } from './RouteMapView';
 export type { RouteMapViewProps } from './RouteMapView';
+
+export { default as RideChatModal } from './RideChatModal';
+export type { RideChatModalProps, ChatMessage } from './RideChatModal';

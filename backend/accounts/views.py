@@ -175,6 +175,19 @@ def send_otp(request):
         existing_user = User.objects.filter(mobile_number=mobile_normalized).first()
         target_display = f"+{clean_mobile_for_msg91(mobile_normalized)}"
 
+    # Rate limiting: maximum 3 OTP requests per 10 minutes to prevent SMS/Email abuse
+    cutoff_time = timezone.now() - timedelta(minutes=10)
+    if raw_email:
+        recent_requests = OTPChallenge.objects.filter(email=raw_email, created_at__gte=cutoff_time).count()
+    else:
+        recent_requests = OTPChallenge.objects.filter(mobile_number=mobile_normalized, created_at__gte=cutoff_time).count()
+
+    if recent_requests >= 3:
+        return Response({
+            'success': False,
+            'message': 'Rate limit exceeded: You have requested too many OTPs. Please wait 10 minutes before requesting a new code.'
+        }, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
     if mode == 'LOGIN':
         if not existing_user:
             return Response({

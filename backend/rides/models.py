@@ -731,3 +731,47 @@ class RideSettlement(models.Model):
         super().clean()
         if self.gross_fare != (self.platform_commission + self.driver_net_earnings):
             raise ValidationError("Gross fare must equal platform commission plus driver net earnings.")
+
+
+class RideChatMessage(models.Model):
+    """
+    In-app chat messages exchanged between passenger and driver during an active ride.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    ride = models.ForeignKey(Ride, on_delete=models.CASCADE, related_name="chat_messages")
+    sender = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="sent_chat_messages")
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "rides_chat_message"
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"Chat({self.ride_id}): {self.sender.full_name or self.sender.mobile_number}: {self.message[:30]}"
+
+
+class ShareTaxiPool(models.Model):
+    """
+    Corridor pooling for shared rides along high-demand Kerala commuter routes.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    corridor_name = models.CharField(max_length=150, help_text="e.g. Kothamangalam - Kakkanad InfoPark - Aluva Metro")
+    origin_zone = models.CharField(max_length=100, default="Kothamangalam")
+    dest_zone = models.CharField(max_length=100, default="Kochi / Aluva")
+    vehicle = models.ForeignKey('vehicles.Vehicle', on_delete=models.SET_NULL, null=True, blank=True)
+    driver = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="shared_pools")
+    max_seats = models.PositiveSmallIntegerField(default=4)
+    occupied_seats = models.PositiveSmallIntegerField(default=1)
+    fare_per_passenger = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("150.00"))
+    departure_time = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "rides_share_taxi_pool"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"SharePool({self.corridor_name}) [{self.occupied_seats}/{self.max_seats} seats]"

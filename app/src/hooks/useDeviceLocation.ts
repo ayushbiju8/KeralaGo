@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Platform } from 'react-native';
+import * as Location from 'expo-location';
 import { reverseGeocode } from '../services/googleMapsService';
 import { LatLng } from '../utils/decodePolyline';
 
@@ -37,8 +38,6 @@ export function useDeviceLocation() {
       // ── Native (Android / iOS): Use expo-location for real hardware GPS ──
       if (Platform.OS !== 'web') {
         try {
-          const Location = await import('expo-location');
-
           // Request foreground location permission
           const { status } = await Location.requestForegroundPermissionsAsync();
           if (status !== 'granted') {

@@ -29,6 +29,59 @@ function initTelemetrySockets(io) {
     });
 
     /**
+     * Driver partner registers active duty socket
+     * Event: 'driver:register'
+     * Payload: { driverId: string }
+     */
+    socket.on('driver:register', ({ driverId }) => {
+      if (driverId) {
+        socket.join(`driver:${driverId}`);
+        socket.join('drivers');
+        console.log(`[TelemetrySocket] Driver ${driverId} registered duty channel`);
+      }
+    });
+
+    /**
+     * Driver accepts an active ride offer via WebSocket
+     * Event: 'driver:accept'
+     * Payload: { rideId: string, driverId: string }
+     */
+    socket.on('driver:accept', ({ rideId, driverId, driverName }) => {
+      if (rideId) {
+        console.log(`[TelemetrySocket] Driver ${driverId} accepted ride ${rideId}`);
+        io.to(`ride:${rideId}`).emit('ride:status_update', {
+          rideId,
+          status: 'ACCEPTED',
+          driverId,
+          driverName,
+          timestamp: Date.now(),
+        });
+      }
+    });
+
+    /**
+     * Driver declines an active ride offer
+     * Event: 'driver:decline'
+     * Payload: { rideId: string, driverId: string }
+     */
+    socket.on('driver:decline', ({ rideId, driverId }) => {
+      console.log(`[TelemetrySocket] Driver ${driverId} declined offer ${rideId}`);
+      socket.leave(`ride:${rideId}`);
+    });
+
+    /**
+     * In-App Ride Chat message sent by connected client
+     * Event: 'ride:send_chat'
+     * Payload: { rideId: string, message: object }
+     */
+    socket.on('ride:send_chat', ({ rideId, message }) => {
+      if (rideId && message) {
+        console.log(`[TelemetrySocket] Chat message in ride:${rideId} from ${message.senderName}`);
+        io.to(`ride:${rideId}`).emit('ride:chat_message', { rideId, message });
+      }
+    });
+
+    /**
      * Driver pings raw GPS coordinate every 3 seconds
      * Event: 'driver:ping'
      * Payload: {
