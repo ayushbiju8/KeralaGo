@@ -6,6 +6,7 @@ from .models import User, UserProfile, OTPChallenge, UserRole, OTPPurpose
 class UserSerializer(serializers.ModelSerializer):
     profile_photo = serializers.SerializerMethodField()
     default_payment_method = serializers.SerializerMethodField()
+    gender = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -19,6 +20,7 @@ class UserSerializer(serializers.ModelSerializer):
             'is_staff',
             'profile_photo',
             'default_payment_method',
+            'gender',
             'created_at',
         ]
 
@@ -31,6 +33,11 @@ class UserSerializer(serializers.ModelSerializer):
         if hasattr(obj, 'profile') and obj.profile.default_payment_method:
             return obj.profile.default_payment_method
         return "UPI"
+
+    def get_gender(self, obj):
+        if hasattr(obj, 'profile') and obj.profile.gender:
+            return obj.profile.gender
+        return None
 
 
 class SendOTPSerializer(serializers.Serializer):
@@ -70,4 +77,5 @@ class UpdateProfileSerializer(serializers.Serializer):
     email = serializers.EmailField(required=False, allow_blank=True)
     full_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     default_payment_method = serializers.CharField(max_length=30, required=False, allow_blank=True)
+    gender = serializers.CharField(max_length=10, required=False, allow_blank=True)
 

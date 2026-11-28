@@ -40,6 +40,15 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "KeralaGo needs your location to find nearby drivers and calculate your route.",
+          "locationWhenInUsePermission": "KeralaGo needs your location to show your pickup point on the map.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true
+        }
       ]
     ],
     "experiments": {

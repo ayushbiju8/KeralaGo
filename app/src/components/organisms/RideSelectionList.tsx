@@ -7,8 +7,10 @@
  */
 
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet, ViewStyle, Image, ImageSourcePropType } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, ViewStyle, ImageSourcePropType } from 'react-native';
 import Typography from '../atoms/Typography';
+import ShimmerImage from '../atoms/ShimmerImage';
+import { RideOptionSkeleton } from '../molecules/SkeletonPresets';
 import { Colors, Spacing } from '../../constants/theme';
 
 export interface RideOption {
@@ -34,6 +36,8 @@ export interface RideSelectionListProps {
   onSelect: (id: string) => void;
   /** Override container style */
   style?: ViewStyle;
+  /** Whether options are currently loading */
+  isLoading?: boolean;
 }
 
 const RideSelectionList: React.FC<RideSelectionListProps> = ({
@@ -41,7 +45,19 @@ const RideSelectionList: React.FC<RideSelectionListProps> = ({
   selectedId,
   onSelect,
   style,
+  isLoading = false,
 }) => {
+  if (isLoading) {
+    return (
+      <View style={[styles.container, style]}>
+        <RideOptionSkeleton />
+        <RideOptionSkeleton />
+        <RideOptionSkeleton />
+        <RideOptionSkeleton />
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, style]}>
       {options.map((item) => {
@@ -60,13 +76,14 @@ const RideSelectionList: React.FC<RideSelectionListProps> = ({
           >
             {/* Vehicle image asset */}
             <View style={styles.imageWrap}>
-              {item.imageSource && (
-                <Image
+              {item.imageSource ? (
+                <ShimmerImage
                   source={item.imageSource}
                   style={styles.vehicleImage}
                   resizeMode="contain"
+                  fallbackIconName="car-sport-outline"
                 />
-              )}
+              ) : null}
             </View>
 
             {/* Title & Subtitle */}

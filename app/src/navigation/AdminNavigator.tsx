@@ -27,7 +27,7 @@ export default function AdminNavigator() {
         </View>
 
         {/* Admin Card */}
-        <Card shadow="md" style={styles.card}>
+        <Card shadow="md" radius="xl" style={styles.card}>
           <View style={styles.row}>
             <View style={styles.avatarCircle}>
               <Icon library="Ionicons" name="shield-checkmark" size={32} color={Colors.white} />

@@ -15,11 +15,11 @@ import {
   View,
   StyleSheet,
   ViewStyle,
-  Image,
   ImageSourcePropType,
 } from 'react-native';
 import Icon, { IconLibrary } from '../atoms/Icon';
 import Typography from '../atoms/Typography';
+import ShimmerImage from '../atoms/ShimmerImage';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 
 export interface ServiceCategoryCardProps {
@@ -66,7 +66,13 @@ const ServiceCategoryCard: React.FC<ServiceCategoryCardProps> = ({
       {/* Top Graphic / Illustration */}
       <View style={styles.graphicWrap}>
         {imageSource ? (
-          <Image source={imageSource} style={styles.imageAsset} resizeMode="contain" />
+          <ShimmerImage
+            source={imageSource}
+            style={styles.imageAsset}
+            resizeMode="contain"
+            fallbackIconName={iconName}
+            fallbackIconLibrary={iconLibrary}
+          />
         ) : customGraphic ? (
           customGraphic
         ) : (

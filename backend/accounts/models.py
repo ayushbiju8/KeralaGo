@@ -220,6 +220,12 @@ class OTPChallenge(models.Model):
         return is_valid
 
 
+class Gender(models.TextChoices):
+    MALE = "MALE", "Male"
+    FEMALE = "FEMALE", "Female"
+    OTHER = "OTHER", "Other"
+
+
 class UserProfile(models.Model):
     """
     Passenger/User specific metadata profile.
@@ -239,6 +245,13 @@ class UserProfile(models.Model):
         max_length=500,
         blank=True,
         null=True
+    )
+    gender = models.CharField(
+        max_length=10,
+        choices=Gender.choices,
+        blank=True,
+        null=True,
+        help_text="User gender. Mandatory for Pink Cab women-only verification."
     )
     default_payment_method = models.CharField(
         max_length=20,

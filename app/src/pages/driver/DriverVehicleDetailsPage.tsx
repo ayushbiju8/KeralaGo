@@ -3,7 +3,6 @@ import {
   View,
   StyleSheet,
   ScrollView,
-  Image,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
@@ -14,6 +13,7 @@ import {
   Typography,
   Card,
   Icon,
+  ShimmerImage,
 } from '../../components/atoms';
 import { InfoRow } from '../../components/molecules';
 import { NavigationHeader } from '../../components/organisms';

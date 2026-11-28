@@ -18,6 +18,7 @@ import {
 import {
   SegmentTabs,
   SegmentOption,
+  TripItemSkeleton,
 } from '../../components/molecules';
 import {
   NavigationHeader,

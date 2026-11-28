@@ -55,7 +55,14 @@ export async function fetchCustomerDashboard(): Promise<{ data: CustomerDashboar
   };
 }
 
-export async function updateCustomerProfile(payload: { name?: string; email?: string; quietRide?: boolean; acPreferred?: boolean; cashlessOnly?: boolean }) {
+export async function updateCustomerProfile(payload: {
+  name?: string;
+  email?: string;
+  gender?: 'MALE' | 'FEMALE' | 'OTHER';
+  quietRide?: boolean;
+  acPreferred?: boolean;
+  cashlessOnly?: boolean;
+}) {
   return apiPatch('/customer/profile/update/', payload);
 }
 
@@ -84,6 +91,10 @@ export async function requestRide(payload: {
   pickup: { title?: string; address: string; lat: number; lng: number };
   destination: { title?: string; address: string; lat: number; lng: number };
   fare: number;
+  distanceKm?: number;
+  durationMins?: number;
+  paymentMethod?: string;
+  couponCode?: string;
 }) {
   return apiPost<any>('/rides/request/', payload);
 }

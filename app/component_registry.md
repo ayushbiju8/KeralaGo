@@ -60,6 +60,9 @@ Smallest foundational building blocks. Must never depend on domain models, featu
 | `RatingStar` | `atoms/RatingStar.tsx` | `value`, `max`, `size`, `showScore`, `tripCount`, `interactive`, `onRate` | ✅ Implemented |
 | `Radio` | `atoms/Radio.tsx` | `selected`, `label`, `onSelect`, `disabled` | ✅ Implemented |
 | `Card` | `atoms/Card.tsx` | `shadow`: ShadowKey; `radius`: RadiusKey; `backgroundColor`, `onPress`, `bordered`, `borderColor` | ✅ Implemented |
+| `Skeleton` | `atoms/Skeleton.tsx` | `width`, `height`, `borderRadius`, `variant`: `rect`, `circle`, `text`, `card`; `colorScheme`: `neutral`, `mint`, `light` (smooth 60fps shimmer pulse) | ✅ Implemented |
+| `ShimmerImage` | `atoms/ShimmerImage.tsx` | `source`, `resizeMode`, `borderRadius`, `fallbackIconName`, `fallbackIconLibrary`, `bordered` (automatic skeleton shimmer + graceful icon fallback) | ✅ Implemented |
+
 
 ---
 
@@ -86,6 +89,7 @@ Combinations of two or more atoms performing a focused UI function.
 | `SheetDecorativeWave` | `molecules/SheetDecorativeWave.tsx` | Green contour waves + dashed trail + mini green car + destination pin | Customer Home bottom sheet | ✅ Implemented |
 | `DriverHeroCarBanner` | `molecules/DriverHeroCarBanner.tsx` | Kerala landscape hills, palm silhouettes, floating white duty capsule (`landscape`), and dark green floating pill (`floating-dark`) | Driver Home | ✅ Implemented |
 | `SwipeButton` | `molecules/SwipeButton.tsx` | Gesture-driven horizontal slider with PanResponder, spring snap physics, animated fill trail, customizable height & knob icon, and completion threshold | Driver active ride simulation stages (Arrived at Pickup, Start Trip, End Trip) | ✅ Implemented |
+| `SkeletonPresets` | `molecules/SkeletonPresets.tsx` | High-fidelity skeleton layouts: `ServiceCategorySkeleton`, `ServiceGridSkeleton`, `TripItemSkeleton`, `RideOptionSkeleton`, `StatCardSkeleton`, `VehicleCardSkeleton`, `WalletCardSkeleton` | Loading states across Customer and Driver screens | ✅ Implemented |
 
 ---
 
@@ -105,6 +109,7 @@ Complex UI modules composed of atoms and molecules. Can bind to typed domain dat
 | `TripHistoryItem` | `organisms/TripHistoryItem.tsx` | Route + fare + status badge row with `default` (card style) and `compact` (timeline dot format) | Customer Bookings, Driver Trips, Admin Dashboard | ✅ Implemented |
 | `DocumentVerificationRow` | `organisms/DocumentVerificationRow.tsx` | `Icon` + doc name + `Badge` (Verified/Pending/Rejected) | Driver Profile, Admin Driver Profile | ✅ Implemented |
 | `BottomTabBar` | `organisms/BottomTabBar.tsx` | Tab items with active underline indicator, clean/pill icon highlight, supports Home, Earnings, Rides, Profile | All apps (Customer, Driver, Admin) | ✅ Implemented |
+| `NetworkLoadingOverlay` | `organisms/NetworkLoadingOverlay.tsx` | Pulsating radar rings + prebuilt ActivityIndicator + weak signal pill + rotating status tips + retry/cancel actions | Low bandwidth fallback, pending ride/payment states | ✅ Implemented |
 
 ---
 

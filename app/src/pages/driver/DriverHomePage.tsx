@@ -16,10 +16,13 @@ import {
   Card,
   Divider,
   Icon,
+  ShimmerImage,
 } from '../../components/atoms';
 import {
   DriverHeroCarBanner,
   KeralaMapBackground,
+  StatCardSkeleton,
+  VehicleCardSkeleton,
 } from '../../components/molecules';
 import {
   BottomTabBar,
@@ -209,10 +212,11 @@ const DriverHomePage: React.FC<DriverHomePageProps> = ({
             onPress={onNavigateVehicleDetails ?? (() => Alert.alert('Vehicle Details', 'Maruti Swift Dzire\nRegistration: KL 07 AB 1234\nCategory: Sedan\nFitness & Insurance: Valid'))}
           >
             <View style={styles.carImageContainer}>
-              <Image
+              <ShimmerImage
                 source={require('../../../assets/images/white_sedan.jpg')}
                 style={styles.vehicleThumb}
                 resizeMode="contain"
+                fallbackIconName="car-sport"
               />
             </View>
 

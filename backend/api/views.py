@@ -152,6 +152,7 @@ def customer_dashboard(request):
         'name': customer.full_name or 'KeralaGO User',
         'phone': customer.mobile_number,
         'email': customer.email or '',
+        'gender': profile.gender,
         'avatar': profile.profile_photo,
         'rating': customer_rating,
         'totalRides': Ride.objects.filter(customer=customer).count(),
@@ -319,6 +320,7 @@ def update_customer_profile(request):
 
     name = request.data.get('name')
     email = request.data.get('email')
+    gender = request.data.get('gender')
     quiet_ride = request.data.get('quietRide')
     ac_preferred = request.data.get('acPreferred')
     cashless_only = request.data.get('cashlessOnly')
@@ -330,6 +332,8 @@ def update_customer_profile(request):
     customer.save()
 
     profile, _ = UserProfile.objects.get_or_create(user=customer)
+    if gender:
+        profile.gender = gender.strip().upper()
     if quiet_ride is not None:
         profile.quiet_ride = bool(quiet_ride)
     if ac_preferred is not None:
@@ -342,7 +346,8 @@ def update_customer_profile(request):
         'success': True,
         'message': 'Profile updated successfully',
         'name': customer.full_name,
-        'email': customer.email
+        'email': customer.email,
+        'gender': profile.gender,
     }, status=status.HTTP_200_OK)
 
 
@@ -497,18 +502,45 @@ def request_ride(request):
     if not customer:
         return Response({'error': 'Customer account required'}, status=status.HTTP_400_BAD_REQUEST)
 
-    cat_code = request.data.get('category', 'auto')
-    category = VehicleCategory.objects.filter(code=cat_code).first() or VehicleCategory.objects.first()
+    cat_code = str(request.data.get('category', 'auto')).strip().lower()
+    category = VehicleCategory.objects.filter(
+        models.Q(code__iexact=cat_code) | models.Q(name__icontains=cat_code)
+    ).first() or VehicleCategory.objects.first()
+
+    customer_profile, _ = UserProfile.objects.get_or_create(user=customer)
+
+    # ── Pink Cab / Women-Only Safety Enforcement (Checked against database) ──
+    is_pink = (cat_code == 'pink') or (category and category.is_womens_only)
+    if is_pink:
+        user_gender = (customer_profile.gender or '').strip().upper()
+        if user_gender != 'FEMALE':
+            return Response({
+                'success': False,
+                'code': 'PINK_CAB_WOMEN_ONLY',
+                'error': 'Pink Cab is exclusively reserved for women passengers to guarantee maximum safety. Verified female customer profile required in database.',
+                'userGender': user_gender or 'UNSET',
+            }, status=status.HTTP_403_FORBIDDEN)
 
     pickup = request.data.get('pickup', {})
     dest = request.data.get('destination', {})
     est_fare = Decimal(str(request.data.get('fare', 85)))
+    dist_km = Decimal(str(request.data.get('distance_km', request.data.get('distanceKm', '3.50'))))
+    duration_mins = int(request.data.get('duration_minutes', request.data.get('durationMins', 8)))
+
+    coupon_code = request.data.get('couponCode') or request.data.get('appliedCoupon')
+    applied_coupon = None
+    if coupon_code:
+        applied_coupon = Coupon.objects.filter(code__iexact=str(coupon_code).strip(), is_active=True).first()
 
     # Generate 4-digit PIN for trip start
     otp_pin = f"{random.randint(1000, 9999)}"
 
-    # Auto-assign online driver for demo
-    driver_user = User.objects.filter(role=UserRole.DRIVER).first()
+    # Select appropriate driver (prioritise female driver for Pink Ride)
+    if is_pink:
+        driver_user = User.objects.filter(role=UserRole.DRIVER, profile__gender='FEMALE').first() or User.objects.filter(role=UserRole.DRIVER).first()
+    else:
+        driver_user = User.objects.filter(role=UserRole.DRIVER).first()
+
     driver_profile = getattr(driver_user, 'driver_profile', None)
     active_vehicle = driver_profile.vehicles.filter(is_active=True).first() if driver_profile else None
 
@@ -517,11 +549,12 @@ def request_ride(request):
         driver=driver_user,
         vehicle=active_vehicle,
         vehicle_category=category,
+        applied_coupon=applied_coupon,
         status=RideStatus.ACCEPTED if driver_user else RideStatus.REQUESTED,
-        estimated_distance_km=Decimal('6.40'),
-        estimated_duration_minutes=18,
+        estimated_distance_km=dist_km,
+        estimated_duration_minutes=duration_mins,
         estimated_fare=est_fare,
-        accepted_at=timezone.now(),
+        accepted_at=timezone.now() if driver_user else None,
     )
     ride.set_trip_pin(otp_pin)
     ride.save()
