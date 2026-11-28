@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import Icon from '../atoms/Icon';
 import Typography from '../atoms/Typography';
+import Constants from 'expo-constants';
 import { Colors, Shadows, Radii } from '../../constants/theme';
 import { calculateDrivingRoute, reverseGeocode } from '../../services/googleMapsService';
 
@@ -232,6 +233,8 @@ export interface KeralaMapBackgroundProps {
   destinationCoords?: { lat: number; lng: number } | null;
   /** Live real-time driver GPS coordinates streaming from telemetry socket */
   driverCoords?: { lat: number; lng: number; bearing?: number; vehicleType?: 'car' | 'auto' | 'bike' } | null;
+  /** Incrementing counter to smoothly re-center the map on pickup/current location */
+  recenterTrigger?: number;
 }
 
 /**
@@ -322,9 +325,12 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
   destinationPoint = null,
   destinationCoords = null,
   driverCoords = null,
+  recenterTrigger = 0,
 }) => {
   const mapDivRef = useRef<any>(null);
   const googleMapInstance = useRef<any>(null);
+  const lastIdleCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
+  const wasPinModeRef = useRef<boolean>(false);
   const pickupMarkerRef = useRef<any>(null);
   const destMarkerRef = useRef<any>(null);
   const driverMarkerRef = useRef<any>(null);
@@ -447,27 +453,27 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
 
     // Current Location Pin ("Where we are currently in") with pulsing halo and callout pill
     const userAvatarSvg = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
-<svg width="60" height="74" viewBox="0 0 60 74" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="96" height="74" viewBox="0 0 96 74" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <filter id="pillShadow" x="0" y="0" width="60" height="34" filterUnits="userSpaceOnUse">
+    <filter id="pillShadow" x="0" y="0" width="96" height="34" filterUnits="userSpaceOnUse">
       <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.22"/>
     </filter>
   </defs>
   <!-- Floating Callout Pill -->
   <g filter="url(#pillShadow)">
-    <rect x="4" y="2" width="52" height="20" rx="10" fill="#065F46"/>
-    <text x="30" y="15" fill="#FFFFFF" font-size="8.5" font-family="-apple-system, sans-serif" font-weight="700" text-anchor="middle" letter-spacing="0.4">YOU ARE HERE</text>
-    <path d="M26 22 L30 26 L34 22 Z" fill="#065F46"/>
+    <rect x="4" y="2" width="88" height="20" rx="10" fill="#065F46"/>
+    <text x="48" y="15" fill="#FFFFFF" font-size="8.5" font-family="-apple-system, sans-serif" font-weight="700" text-anchor="middle" letter-spacing="0.4">YOU ARE HERE</text>
+    <path d="M44 22 L48 26 L52 22 Z" fill="#065F46"/>
   </g>
   <!-- Outer Soft Mint Radar Ring -->
-  <circle cx="30" cy="50" r="18" fill="#10B981" fill-opacity="0.18"/>
-  <circle cx="30" cy="50" r="13" fill="#10B981" fill-opacity="0.32"/>
+  <circle cx="48" cy="50" r="18" fill="#10B981" fill-opacity="0.18"/>
+  <circle cx="48" cy="50" r="13" fill="#10B981" fill-opacity="0.32"/>
   <!-- Crisp White Ring -->
-  <circle cx="30" cy="50" r="9.5" fill="#FFFFFF"/>
+  <circle cx="48" cy="50" r="9.5" fill="#FFFFFF"/>
   <!-- Vibrant Emerald Core -->
-  <circle cx="30" cy="50" r="6.5" fill="#059669"/>
+  <circle cx="48" cy="50" r="6.5" fill="#059669"/>
   <!-- Center White Dot -->
-  <circle cx="30" cy="50" r="2.5" fill="#FFFFFF"/>
+  <circle cx="48" cy="50" r="2.5" fill="#FFFFFF"/>
 </svg>
 `)}`;
 
@@ -478,8 +484,8 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
       zIndex: 12,
       icon: {
         url: userAvatarSvg,
-        scaledSize: new google.maps.Size(60, 74),
-        anchor: new google.maps.Point(30, 50),
+        scaledSize: new google.maps.Size(96, 74),
+        anchor: new google.maps.Point(48, 50),
       },
     });
 
@@ -533,13 +539,24 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
     }
 
     if (isPinMode) {
-      // In pin mode, map centers on selected/pinned spot under the interactive center pin
-      if (destPoint) {
-        googleMapInstance.current.setCenter(new google.maps.LatLng(destPoint.lat, destPoint.lng));
-        googleMapInstance.current.setZoom(16);
+      const justEnteredPinMode = !wasPinModeRef.current;
+      wasPinModeRef.current = true;
+      const isFromDragIdle =
+        destPoint &&
+        lastIdleCoordsRef.current &&
+        Math.abs(destPoint.lat - lastIdleCoordsRef.current.lat) < 0.00001 &&
+        Math.abs(destPoint.lng - lastIdleCoordsRef.current.lng) < 0.00001;
+
+      if (!isFromDragIdle && (justEnteredPinMode || destPoint)) {
+        const target = destPoint || pickupPoint;
+        googleMapInstance.current.setCenter(new google.maps.LatLng(target.lat, target.lng));
+        if (justEnteredPinMode) {
+          googleMapInstance.current.setZoom(16);
+        }
       }
       return;
     }
+    wasPinModeRef.current = false;
 
     if (destPoint) {
       const dLatLng = new google.maps.LatLng(destPoint.lat, destPoint.lng);
@@ -826,6 +843,7 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
                 }
               } catch {}
 
+              lastIdleCoordsRef.current = { lat, lng };
               onMapClickRef.current?.({
                 title,
                 subtitle,
@@ -940,6 +958,18 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
     }
     syncGoogleMapRoute();
   }, [activeDestination, pickupLocation, pickupCoords, pinnedPoint, destinationPoint, destinationCoords, isPinMode, driverCoords]);
+
+  // Smoothly re-center map when Locate Me button is pressed
+  useEffect(() => {
+    if (!recenterTrigger || !googleMapInstance.current) return;
+    const google = (globalThis as any).google;
+    if (!google?.maps) return;
+    const latOffset = isPinMode || isDriver || destPoint ? 0 : 0.0035;
+    googleMapInstance.current.panTo(
+      new google.maps.LatLng(pickupPoint.lat - latOffset, pickupPoint.lng)
+    );
+    googleMapInstance.current.setZoom(16);
+  }, [recenterTrigger]);
 
   return (
     <View
@@ -1582,12 +1612,12 @@ const styles = StyleSheet.create({
   },
   centerPinContainer: {
     position: 'absolute',
-    top: '40%',
+    top: '50%',
     left: '50%',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 35,
-    transform: [{ translateX: -80 }, { translateY: -44 }],
+    transform: [{ translateX: -80 }, { translateY: -74 }],
     width: 160,
   },
   centerPinPill: {

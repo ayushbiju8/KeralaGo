@@ -181,6 +181,7 @@ const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
     lng: 76.6192,
   });
   const [pinnedLocation, setPinnedLocation] = useState<LocationPoint | null>(null);
+  const [recenterTrigger, setRecenterTrigger] = useState<number>(0);
   const [destinationQuery, setDestinationQuery] = useState<string>('');
   const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
   const [isSearching, setIsSearching] = useState<boolean>(false);
@@ -968,6 +969,7 @@ const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
         showVehicles={false}
         pickupLocation={pickupLocation}
         pickupCoords={pickupCoords}
+        recenterTrigger={recenterTrigger}
         driverCoords={stage === 'ACTIVE_RIDE' ? liveDriverCoords : null}
         activeDestination={
           stage === 'PIN_ON_MAP'
@@ -1016,7 +1018,7 @@ const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
                 const gps = await getCurrentGPSLocation();
                 setPickupLocation(gps.address);
                 setPickupCoords({ lat: gps.latitude, lng: gps.longitude });
-                Alert.alert('GPS Location', `Pickup location set to:\n${gps.address}`);
+                setRecenterTrigger((c) => c + 1);
               }}
             />
 
@@ -1026,7 +1028,16 @@ const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
               diameter={44}
               onPress={() => {
                 if (!pinnedLocation) {
-                  setPinnedLocation(getLocationPoint(selectedDestination));
+                  if (pickupCoords) {
+                    setPinnedLocation({
+                      title: pickupLocation?.split(',')[0] || 'Current Location',
+                      subtitle: pickupLocation || 'Current Location',
+                      lat: pickupCoords.lat,
+                      lng: pickupCoords.lng,
+                    });
+                  } else {
+                    setPinnedLocation(getLocationPoint(selectedDestination));
+                  }
                 }
                 setStage('PIN_ON_MAP');
               }}
@@ -1179,7 +1190,16 @@ const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
                 onPress={() => {
                   if (chip.id === 'set_map') {
                     if (!pinnedLocation) {
-                      setPinnedLocation(getLocationPoint(selectedDestination));
+                      if (pickupCoords) {
+                        setPinnedLocation({
+                          title: pickupLocation?.split(',')[0] || 'Current Location',
+                          subtitle: pickupLocation || 'Current Location',
+                          lat: pickupCoords.lat,
+                          lng: pickupCoords.lng,
+                        });
+                      } else {
+                        setPinnedLocation(getLocationPoint(selectedDestination));
+                      }
                     }
                     setStage('PIN_ON_MAP');
                   } else if (chip.target) {
@@ -1209,7 +1229,16 @@ const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
               activeOpacity={0.75}
               onPress={() => {
                 if (!pinnedLocation) {
-                  setPinnedLocation(getLocationPoint(selectedDestination));
+                  if (pickupCoords) {
+                    setPinnedLocation({
+                      title: pickupLocation?.split(',')[0] || 'Current Location',
+                      subtitle: pickupLocation || 'Current Location',
+                      lat: pickupCoords.lat,
+                      lng: pickupCoords.lng,
+                    });
+                  } else {
+                    setPinnedLocation(getLocationPoint(selectedDestination));
+                  }
                 }
                 setStage('PIN_ON_MAP');
               }}
@@ -1330,12 +1359,15 @@ const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
             style={styles.pinLocateMeBtn}
             onPress={async () => {
               const gps = await getCurrentGPSLocation();
+              setPickupLocation(gps.address);
+              setPickupCoords({ lat: gps.latitude, lng: gps.longitude });
               setPinnedLocation({
                 title: gps.address.split(',')[0] || 'Current Location',
                 subtitle: gps.address,
                 lat: gps.latitude,
                 lng: gps.longitude,
               });
+              setRecenterTrigger((c) => c + 1);
             }}
             activeOpacity={0.8}
           >
