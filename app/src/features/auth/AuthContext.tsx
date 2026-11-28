@@ -26,7 +26,7 @@ export interface AuthContextType {
     target: string | SendOtpParams,
     role?: UserRole
   ) => Promise<SendOtpResponse>;
-  updateProfile: (name: string, paymentMethod?: string) => Promise<boolean>;
+  updateProfile: (name: string, paymentMethod?: string, gender?: 'MALE' | 'FEMALE' | 'OTHER') => Promise<boolean>;
   logout: () => void;
   setRole: (role: UserRole) => void;
   toggleRole: () => void;
@@ -95,12 +95,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Update profile and persist directly to database
   const updateProfile = useCallback(
-    async (name: string, paymentMethod?: string): Promise<boolean> => {
+    async (name: string, paymentMethod?: string, gender?: 'MALE' | 'FEMALE' | 'OTHER'): Promise<boolean> => {
       if (!user) return false;
       const ok = await updateUserProfileApi(
         { mobileNumber: user.phone, email: user.email },
         name,
-        paymentMethod
+        paymentMethod,
+        gender
       );
       setUser((prev) => {
         if (!prev) return null;
@@ -108,6 +109,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           ...prev,
           name: name || prev.name,
           defaultPaymentMethod: paymentMethod || prev.defaultPaymentMethod,
+          gender: gender || prev.gender,
         };
       });
       return ok;

@@ -35,6 +35,56 @@ def normalize_mobile(raw_number: str) -> str:
     return cleaned
 
 
+MOCK_ACCOUNTS = {
+    '+919999999999': {
+        'full_name': 'Ayush Biju (Demo Rider)',
+        'role': UserRole.USER,
+        'gender': 'FEMALE',
+    },
+    '+919800000002': {
+        'full_name': 'Ananya Menon (Pink Cab)',
+        'role': UserRole.USER,
+        'gender': 'FEMALE',
+    },
+    '+919800000001': {
+        'full_name': 'Rohan Verma (Male Rider)',
+        'role': UserRole.USER,
+        'gender': 'MALE',
+    },
+    '+919999999996': {
+        'full_name': 'Vijayan K. (Demo Driver)',
+        'role': UserRole.DRIVER,
+        'gender': 'MALE',
+    },
+    '+919999900000': {
+        'full_name': 'Admin Ops',
+        'role': UserRole.ADMIN,
+        'gender': 'MALE',
+    },
+    '+919447198765': {
+        'full_name': 'Suresh Pillai',
+        'role': UserRole.DRIVER,
+        'gender': 'MALE',
+    },
+    '+919847012345': {
+        'full_name': 'Arun Kumar',
+        'role': UserRole.USER,
+        'gender': 'FEMALE',
+    },
+}
+
+
+def is_mock_mobile(mobile: str) -> bool:
+    cleaned = normalize_mobile(mobile)
+    return (
+        cleaned in MOCK_ACCOUNTS
+        or '9999999999' in cleaned
+        or cleaned.startswith('+91980000000')
+        or cleaned.startswith('+9199999000')
+        or cleaned.endswith('9999999999')
+    )
+
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def send_otp(request):
@@ -56,6 +106,65 @@ def send_otp(request):
     full_name = data.get('full_name', '').strip()
 
     expires_at = timezone.now() + timedelta(minutes=10)
+
+    # 0. Mock Accounts Shortcut (Bypasses external SMS gateway, fixed OTP: 9999)
+    if raw_mobile:
+        mobile_normalized = normalize_mobile(raw_mobile)
+        if is_mock_mobile(mobile_normalized):
+            mock_info = MOCK_ACCOUNTS.get(mobile_normalized, {
+                'full_name': full_name or 'Demo Rider',
+                'role': requested_role,
+                'gender': 'FEMALE',
+            })
+            existing_user = User.objects.filter(mobile_number=mobile_normalized).first()
+            if not existing_user:
+                existing_user = User.objects.create(
+                    mobile_number=mobile_normalized,
+                    full_name=mock_info.get('full_name', 'Demo Rider'),
+                    role=mock_info.get('role', UserRole.USER),
+                    is_active=True,
+                )
+            
+            profile, _ = UserProfile.objects.get_or_create(user=existing_user)
+            if not profile.gender:
+                profile.gender = mock_info.get('gender', 'FEMALE')
+                profile.save(update_fields=['gender'])
+
+            if existing_user.role == UserRole.DRIVER:
+                from drivers.models import DriverProfile, ApprovalStatus
+                DriverProfile.objects.get_or_create(
+                    user=existing_user,
+                    defaults={
+                        'license_number': f'KL-LIC-{str(uuid.uuid4())[:8].upper()}',
+                        'approval_status': ApprovalStatus.APPROVED,
+                        'is_online': True,
+                    }
+                )
+
+            challenge, _ = OTPChallenge.objects.update_or_create(
+                mobile_number=mobile_normalized,
+                defaults={
+                    'purpose': OTPPurpose.LOGIN if mode == 'LOGIN' else OTPPurpose.REGISTRATION,
+                    'expires_at': timezone.now() + timedelta(minutes=60),
+                    'consumed_at': None,
+                }
+            )
+            challenge.set_code("9999")
+            challenge.save()
+
+            return Response({
+                'success': True,
+                'channel': 'MOBILE',
+                'message': f"Mock Login Active (+{clean_mobile_for_msg91(mobile_normalized)}). Use OTP: 9999",
+                'identifier': mobile_normalized,
+                'mobile_number': mobile_normalized,
+                'dev_otp': '9999',
+                'otp': '9999',
+                'mode': mode,
+                'user_exists': True,
+                'role': existing_user.role,
+                'full_name': existing_user.full_name,
+            }, status=status.HTTP_200_OK)
 
     # 1. Existence check based on mode
     if raw_email:
@@ -218,7 +327,7 @@ def verify_otp(request):
     else:
         # Verify Mobile OTP (MSG91 gateway or challenge)
         mobile = normalize_mobile(raw_mobile)
-        if '9999999999' in mobile and otp == '9999':
+        if (is_mock_mobile(mobile) and otp in ['9999', '1234']) or ('9999999999' in mobile and otp == '9999'):
             is_valid = True
         else:
             challenge = OTPChallenge.objects.filter(
@@ -271,7 +380,24 @@ def verify_otp(request):
     else:
         mobile = normalize_mobile(raw_mobile)
         user = User.objects.filter(mobile_number=mobile).first()
-        if mode == 'REGISTER':
+        if is_mock_mobile(mobile) and not user:
+            mock_info = MOCK_ACCOUNTS.get(mobile, {
+                'full_name': full_name or 'KeralaGO Demo User',
+                'role': role or UserRole.USER,
+                'gender': 'FEMALE'
+            })
+            user = User.objects.create(
+                mobile_number=mobile,
+                full_name=mock_info.get('full_name', 'KeralaGO Demo User'),
+                role=mock_info.get('role', UserRole.USER),
+                is_active=True,
+            )
+            UserProfile.objects.create(
+                user=user,
+                gender=mock_info.get('gender', 'FEMALE'),
+                default_payment_method='UPI'
+            )
+        elif mode == 'REGISTER':
             if user:
                 return Response({'success': False, 'message': 'Account already registered with this mobile number.'}, status=status.HTTP_400_BAD_REQUEST)
             user = User.objects.create(
@@ -359,9 +485,17 @@ def user_profile(request):
                 user.email = serializer.validated_data['email'].strip().lower()
             user.save(update_fields=['full_name', 'email', 'updated_at'])
 
-            if hasattr(user, 'profile') and serializer.validated_data.get('default_payment_method'):
-                user.profile.default_payment_method = serializer.validated_data['default_payment_method']
-                user.profile.save(update_fields=['default_payment_method', 'updated_at'])
+            if hasattr(user, 'profile'):
+                profile_updates = []
+                if serializer.validated_data.get('default_payment_method'):
+                    user.profile.default_payment_method = serializer.validated_data['default_payment_method']
+                    profile_updates.append('default_payment_method')
+                if serializer.validated_data.get('gender'):
+                    user.profile.gender = serializer.validated_data['gender'].strip().upper()
+                    profile_updates.append('gender')
+                if profile_updates:
+                    profile_updates.append('updated_at')
+                    user.profile.save(update_fields=profile_updates)
 
     return Response(format_user_payload(user), status=status.HTTP_200_OK)
 
@@ -373,9 +507,11 @@ def format_user_payload(user):
 
     profile_photo = None
     default_pm = 'UPI'
+    gender = None
     if hasattr(user, 'profile'):
         profile_photo = user.profile.profile_photo
         default_pm = user.profile.default_payment_method or 'UPI'
+        gender = user.profile.gender
 
     # Compute real rating from reviews
     revs = Review.objects.filter(reviewee=user)
@@ -401,6 +537,7 @@ def format_user_payload(user):
         'rating': real_rating,
         'totalRides': real_total_rides,
         'defaultPaymentMethod': default_pm,
+        'gender': gender,
         'is_driver': user.is_driver,
         'is_customer': user.is_customer,
     }

@@ -182,8 +182,9 @@ export const fetchUserProfileApi = async (
       email: data.email,
       role: data.role,
       avatar: data.avatar,
-      rating: 4.88,
-      totalRides: 34,
+      gender: data.gender,
+      rating: data.rating ?? 4.88,
+      totalRides: data.totalRides ?? 34,
       isOnline: data.is_driver ? true : undefined,
     };
   } catch (err) {
@@ -195,7 +196,8 @@ export const fetchUserProfileApi = async (
 export const updateUserProfileApi = async (
   identifier: { mobileNumber?: string; email?: string } | string,
   fullName?: string,
-  defaultPaymentMethod?: string
+  defaultPaymentMethod?: string,
+  gender?: string
 ): Promise<boolean> => {
   try {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -207,6 +209,7 @@ export const updateUserProfileApi = async (
     const body: any = {
       full_name: fullName,
       default_payment_method: defaultPaymentMethod,
+      gender: gender,
     };
     if (typeof identifier === 'object') {
       if (identifier.mobileNumber) body.mobile_number = identifier.mobileNumber;

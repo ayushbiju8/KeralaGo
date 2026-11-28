@@ -30,3 +30,10 @@ export type { RadioProps } from './Radio';
 
 export { default as Card } from './Card';
 export type { CardProps } from './Card';
+
+export { default as Skeleton } from './Skeleton';
+export type { SkeletonProps, SkeletonVariant, SkeletonColorScheme } from './Skeleton';
+
+export { default as ShimmerImage } from './ShimmerImage';
+export type { ShimmerImageProps } from './ShimmerImage';
+

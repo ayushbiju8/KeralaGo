@@ -7,24 +7,28 @@ import {
   Platform,
   TouchableOpacity,
   ViewStyle,
+  Animated,
 } from 'react-native';
 import Icon from '../atoms/Icon';
 import Typography from '../atoms/Typography';
 import { Colors, Shadows, Radii } from '../../constants/theme';
+import { calculateDrivingRoute, reverseGeocode } from '../../services/googleMapsService';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const GOOGLE_MAPS_API_KEY =
   process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
-  'AIzaSyDu10Bl1_cUfbKLQ4asg-drGffOOW79FrE';
+  'AIzaSyAAvUnGPNnqkYWc6lUF4ktF6FF5KW66kZo';
 
 export interface LocationPoint {
   title: string;
   lat: number;
   lng: number;
-  top: number;
-  left: number;
+  top?: number;
+  left?: number;
   subtitle?: string;
+  distanceKm?: number;
+  durationMins?: number;
 }
 
 export const KNOWN_LOCATIONS: Record<string, LocationPoint> = {
@@ -86,6 +90,92 @@ export const KNOWN_LOCATIONS: Record<string, LocationPoint> = {
   },
 };
 
+export const findNearestOrFormatLocation = (lat: number, lng: number): LocationPoint => {
+  let closestKey = '';
+  let minDistance = Infinity;
+
+  for (const [key, loc] of Object.entries(KNOWN_LOCATIONS)) {
+    const dLat = loc.lat - lat;
+    const dLng = loc.lng - lng;
+    const dist = Math.sqrt(dLat * dLat + dLng * dLng);
+    if (dist < minDistance) {
+      minDistance = dist;
+      closestKey = key;
+    }
+  }
+
+  // If within ~500m of a known location, snap to landmark
+  if (minDistance < 0.005 && closestKey) {
+    const loc = KNOWN_LOCATIONS[closestKey];
+    return {
+      title: loc.title,
+      subtitle: loc.subtitle || 'Kothamangalam',
+      lat: loc.lat,
+      lng: loc.lng,
+      top: loc.top,
+      left: loc.left,
+    };
+  }
+
+  // If within ~1.5km of a known location, specify near landmark
+  if (minDistance < 0.015 && closestKey) {
+    return {
+      title: `Near ${closestKey}`,
+      subtitle: `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`,
+      lat,
+      lng,
+      top: SCREEN_HEIGHT * 0.28,
+      left: SCREEN_WIDTH * 0.55,
+    };
+  }
+
+  return {
+    title: 'Pinned Destination',
+    subtitle: `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`,
+    lat,
+    lng,
+    top: SCREEN_HEIGHT * 0.28,
+    left: SCREEN_WIDTH * 0.55,
+  };
+};
+
+/**
+ * Fetches real driving route following actual roads from OSRM
+ */
+export const fetchRoadRoute = async (
+  pLat: number,
+  pLng: number,
+  dLat: number,
+  dLng: number
+): Promise<{
+  path: Array<{ lat: number; lng: number }>;
+  distanceKm: number;
+  durationMins: number;
+  destStreet?: string;
+} | null> => {
+  try {
+    const url = `https://router.project-osrm.org/route/v1/driving/${pLng},${pLat};${dLng},${dLat}?overview=full&geometries=geojson`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+      const route = data.routes[0];
+      const coords: [number, number][] = route.geometry.coordinates;
+      const path = coords.map(([lng, lat]) => ({ lat, lng }));
+      const destStreet = data.waypoints?.[1]?.name?.trim();
+      return {
+        path,
+        distanceKm: Math.round((route.distance / 1000) * 10) / 10,
+        durationMins: Math.round(route.duration / 60),
+        destStreet: destStreet || undefined,
+      };
+    }
+  } catch (err) {
+    console.warn('Real road route fetch error:', err);
+  }
+  return null;
+};
+
 export const getLocationPoint = (name?: string | null): LocationPoint => {
   if (!name) return KNOWN_LOCATIONS['Mar Athanasius College of Engineering'];
   if (KNOWN_LOCATIONS[name]) return KNOWN_LOCATIONS[name];
@@ -109,6 +199,7 @@ export interface KeralaMapBackgroundProps {
   showVehicles?: boolean;
   activeDestination?: string | null;
   pickupLocation?: string;
+  pickupCoords?: { lat: number; lng: number } | null;
   variant?: 'customer' | 'driver';
   height?: number;
   offsetY?: number;
@@ -116,6 +207,14 @@ export interface KeralaMapBackgroundProps {
   onLocatePress?: () => void;
   onLayersPress?: () => void;
   onNavigatePress?: () => void;
+  /** Callback triggered when user taps/pins a location on the map */
+  onMapClick?: (point: LocationPoint) => void;
+  /** Whether the map is in interactive pin-on-map mode */
+  isPinMode?: boolean;
+  /** Explicitly pinned dropoff point */
+  pinnedPoint?: LocationPoint | null;
+  destinationPoint?: LocationPoint | null;
+  destinationCoords?: { lat: number; lng: number } | null;
 }
 
 /**
@@ -192,6 +291,7 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
   showVehicles = true,
   activeDestination,
   pickupLocation,
+  pickupCoords = null,
   variant = 'customer',
   height: customHeight,
   offsetY = 0,
@@ -199,6 +299,11 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
   onLocatePress,
   onLayersPress,
   onNavigatePress,
+  onMapClick,
+  isPinMode = false,
+  pinnedPoint = null,
+  destinationPoint = null,
+  destinationCoords = null,
 }) => {
   const mapDivRef = useRef<any>(null);
   const googleMapInstance = useRef<any>(null);
@@ -206,10 +311,84 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
   const destMarkerRef = useRef<any>(null);
   const directionsServiceRef = useRef<any>(null);
   const directionsRendererRef = useRef<any>(null);
+  const routePolylineRef = useRef<any>(null);
+  const routeCasingPolylineRef = useRef<any>(null);
+  const mapClickListenerRef = useRef<any>(null);
+  const etaWindowRef = useRef<any>(null);
+
+  const isPinModeRef = useRef(isPinMode);
+  isPinModeRef.current = isPinMode;
+
+  const pinBounceAnim = useRef(new Animated.Value(0)).current;
+  const pinShadowScale = useRef(new Animated.Value(1)).current;
+  const pinShadowOpacity = useRef(new Animated.Value(0.7)).current;
+
+  const liftPin = () => {
+    Animated.parallel([
+      Animated.timing(pinBounceAnim, {
+        toValue: -18,
+        duration: 140,
+        useNativeDriver: true,
+      }),
+      Animated.timing(pinShadowScale, {
+        toValue: 0.55,
+        duration: 140,
+        useNativeDriver: true,
+      }),
+      Animated.timing(pinShadowOpacity, {
+        toValue: 0.35,
+        duration: 140,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const dropPin = () => {
+    Animated.parallel([
+      Animated.spring(pinBounceAnim, {
+        toValue: 0,
+        friction: 6,
+        tension: 110,
+        useNativeDriver: true,
+      }),
+      Animated.spring(pinShadowScale, {
+        toValue: 1,
+        friction: 6,
+        tension: 110,
+        useNativeDriver: true,
+      }),
+      Animated.timing(pinShadowOpacity, {
+        toValue: 0.7,
+        duration: 140,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
 
   const isDriver = variant === 'driver';
-  const pickupPoint = getLocationPoint(pickupLocation || (isDriver ? 'Mar Athanasius College of Engineering' : undefined));
-  const destPoint = activeDestination ? getLocationPoint(activeDestination) : null;
+  const pickupPoint = pickupCoords
+    ? {
+        title: pickupLocation || 'Pickup Location',
+        lat: pickupCoords.lat,
+        lng: pickupCoords.lng,
+        top: 0,
+        left: 0,
+      }
+    : getLocationPoint(pickupLocation || (isDriver ? 'Mar Athanasius College of Engineering' : undefined));
+
+  const destPoint =
+    pinnedPoint ||
+    destinationPoint ||
+    (destinationCoords
+      ? {
+          title: activeDestination || 'Destination',
+          lat: destinationCoords.lat,
+          lng: destinationCoords.lng,
+          top: 0,
+          left: 0,
+        }
+      : null) ||
+    (activeDestination ? getLocationPoint(activeDestination) : null);
 
   // Sync Google Maps markers & route on activeDestination / pickupLocation change
   const syncGoogleMapRoute = () => {
@@ -220,6 +399,14 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
       directionsRendererRef.current.setMap(null);
       directionsRendererRef.current = null;
     }
+    if (routePolylineRef.current) {
+      routePolylineRef.current.setMap(null);
+      routePolylineRef.current = null;
+    }
+    if (routeCasingPolylineRef.current) {
+      routeCasingPolylineRef.current.setMap(null);
+      routeCasingPolylineRef.current = null;
+    }
     if (pickupMarkerRef.current) {
       pickupMarkerRef.current.setMap(null);
       pickupMarkerRef.current = null;
@@ -228,108 +415,291 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
       destMarkerRef.current.setMap(null);
       destMarkerRef.current = null;
     }
+    if (etaWindowRef.current) {
+      if (typeof etaWindowRef.current.setMap === 'function') {
+        etaWindowRef.current.setMap(null);
+      } else if (typeof etaWindowRef.current.close === 'function') {
+        etaWindowRef.current.close();
+      }
+      etaWindowRef.current = null;
+    }
 
     const pLatLng = new google.maps.LatLng(pickupPoint.lat, pickupPoint.lng);
 
-    // Marker (Pin Icon)
+    // Current Location Pin ("Where we are currently in") with pulsing halo and callout pill
+    const userAvatarSvg = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+<svg width="60" height="74" viewBox="0 0 60 74" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="pillShadow" x="0" y="0" width="60" height="34" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+  <!-- Floating Callout Pill -->
+  <g filter="url(#pillShadow)">
+    <rect x="4" y="2" width="52" height="20" rx="10" fill="#065F46"/>
+    <text x="30" y="15" fill="#FFFFFF" font-size="8.5" font-family="-apple-system, sans-serif" font-weight="700" text-anchor="middle" letter-spacing="0.4">YOU ARE HERE</text>
+    <path d="M26 22 L30 26 L34 22 Z" fill="#065F46"/>
+  </g>
+  <!-- Outer Soft Mint Radar Ring -->
+  <circle cx="30" cy="50" r="18" fill="#10B981" fill-opacity="0.18"/>
+  <circle cx="30" cy="50" r="13" fill="#10B981" fill-opacity="0.32"/>
+  <!-- Crisp White Ring -->
+  <circle cx="30" cy="50" r="9.5" fill="#FFFFFF"/>
+  <!-- Vibrant Emerald Core -->
+  <circle cx="30" cy="50" r="6.5" fill="#059669"/>
+  <!-- Center White Dot -->
+  <circle cx="30" cy="50" r="2.5" fill="#FFFFFF"/>
+</svg>
+`)}`;
+
     pickupMarkerRef.current = new google.maps.Marker({
       position: pLatLng,
       map: googleMapInstance.current,
-      title: isDriver ? 'Driver Location: Near MACE' : `Pickup: ${pickupPoint.title}`,
+      title: isDriver ? 'Driver Location' : `You are here: ${pickupPoint.title}`,
+      zIndex: 12,
       icon: {
-        path: 'M 0,0 C -2,-18 -9,-20 -9,-27 A 9,9 0 1,1 9,-27 C 9,-20 2,-18 0,0 Z',
-        scale: 1.1,
-        fillColor: '#0F4A2B',
-        fillOpacity: 1,
-        strokeColor: '#FFFFFF',
-        strokeWeight: 2,
-        anchor: new google.maps.Point(0, 0),
+        url: userAvatarSvg,
+        scaledSize: new google.maps.Size(60, 74),
+        anchor: new google.maps.Point(30, 50),
       },
     });
+
+    if (isPinMode) {
+      // In pin mode, map centers on selected/pinned spot under the interactive center pin
+      if (destPoint) {
+        googleMapInstance.current.setCenter(new google.maps.LatLng(destPoint.lat, destPoint.lng));
+        googleMapInstance.current.setZoom(16);
+      }
+      return;
+    }
 
     if (destPoint) {
       const dLatLng = new google.maps.LatLng(destPoint.lat, destPoint.lng);
 
-      // Destination Marker
+      const isSameLocation =
+        Math.abs(pickupPoint.lat - destPoint.lat) < 0.0001 &&
+        Math.abs(pickupPoint.lng - destPoint.lng) < 0.0001;
+
+      // Lighter, pleasing modern Rose-Coral Destination Marker Pin
+      const destinationSvg = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+<svg width="40" height="52" viewBox="0 0 40 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="roseGrad" x1="20" y1="2" x2="20" y2="46" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FB7185"/>
+      <stop offset="100%" stop-color="#E11D48"/>
+    </linearGradient>
+  </defs>
+  <!-- Modern Rose-Coral Pin -->
+  <path d="M20 2 C10.6 2 3 9.6 3 19 C3 31.5 17.8 45.2 19.3 46.5 C19.7 46.9 20.3 46.9 20.7 46.5 C22.2 45.2 37 31.5 37 19 C37 9.6 29.4 2 20 2 Z" fill="url(#roseGrad)"/>
+  <!-- Inner White Halo -->
+  <circle cx="20" cy="18" r="7.5" fill="#FFFFFF"/>
+  <!-- Center Dot -->
+  <circle cx="20" cy="18" r="3.5" fill="#E11D48"/>
+</svg>
+`)}`;
+
       destMarkerRef.current = new google.maps.Marker({
         position: dLatLng,
         map: googleMapInstance.current,
         title: `Dropoff: ${destPoint.title}`,
+        animation: google.maps.Animation.DROP,
+        zIndex: 12,
         icon: {
-          path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
-          scale: 6,
-          fillColor: '#DC2626',
-          fillOpacity: 1,
-          strokeColor: '#FFFFFF',
-          strokeWeight: 2,
+          url: destinationSvg,
+          scaledSize: new google.maps.Size(40, 52),
+          anchor: new google.maps.Point(20, 47),
         },
       });
 
-      // Real driving road route via DirectionsService
-      try {
-        if (google.maps.DirectionsService && google.maps.DirectionsRenderer) {
-          if (!directionsServiceRef.current) {
-            directionsServiceRef.current = new google.maps.DirectionsService();
-          }
-
-          const renderer = new google.maps.DirectionsRenderer({
-            map: googleMapInstance.current,
-            suppressMarkers: true,
-            preserveViewport: true,
-            polylineOptions: {
-              strokeColor: '#0F4A2B',
-              strokeOpacity: 0.9,
-              strokeWeight: 5,
-            },
-          });
-          directionsRendererRef.current = renderer;
-
-          directionsServiceRef.current.route(
-            {
-              origin: pLatLng,
-              destination: dLatLng,
-              travelMode: google.maps.TravelMode.DRIVING,
-            },
-            (result: any, status: any) => {
-              if (status === google.maps.DirectionsStatus.OK) {
-                renderer.setDirections(result);
-              }
-            }
-          );
-        }
-      } catch (err) {
-        // Fallback gracefully
+      if (isSameLocation) {
+        googleMapInstance.current.setCenter(pLatLng);
+        googleMapInstance.current.setZoom(16);
+        return;
       }
 
-      const bounds = new google.maps.LatLngBounds();
-      bounds.extend(pLatLng);
-      bounds.extend(dLatLng);
-      googleMapInstance.current.fitBounds(bounds, {
+      // Immediately frame both pickup and destination so map animates without delay
+      const safeBottomPadding = Math.min(Math.round(SCREEN_HEIGHT * 0.44), 310);
+      const initialBounds = new google.maps.LatLngBounds();
+      initialBounds.extend(pLatLng);
+      initialBounds.extend(dLatLng);
+      googleMapInstance.current.fitBounds(initialBounds, {
         top: 90,
-        bottom: Math.round(SCREEN_HEIGHT * 0.54),
+        bottom: safeBottomPadding,
         left: 50,
         right: 50,
       });
+
+      // Fetch actual real driving road route following real streets, curves & highways
+      calculateDrivingRoute(
+        { latitude: pickupPoint.lat, longitude: pickupPoint.lng },
+        { latitude: destPoint.lat, longitude: destPoint.lng }
+      ).then((routeInfo) => {
+        if (!googleMapInstance.current) return;
+
+        if (routePolylineRef.current) {
+          routePolylineRef.current.setMap(null);
+          routePolylineRef.current = null;
+        }
+        if (routeCasingPolylineRef.current) {
+          routeCasingPolylineRef.current.setMap(null);
+          routeCasingPolylineRef.current = null;
+        }
+
+        const roadPath =
+          routeInfo && routeInfo.path && routeInfo.path.length > 1
+            ? routeInfo.path
+            : [
+                { lat: pickupPoint.lat, lng: pickupPoint.lng },
+                { lat: destPoint.lat, lng: destPoint.lng },
+              ];
+
+        // Clean white casing border for light, modern, floating route effect
+        routeCasingPolylineRef.current = new google.maps.Polyline({
+          path: roadPath,
+          geodesic: true,
+          strokeColor: '#FFFFFF',
+          strokeOpacity: 0.95,
+          strokeWeight: 7.5,
+          map: googleMapInstance.current,
+        });
+
+        // Lighter, pleasing vibrant emerald route line matching KeralaGo theme
+        routePolylineRef.current = new google.maps.Polyline({
+          path: roadPath,
+          geodesic: true,
+          strokeColor: '#10B981',
+          strokeOpacity: 1.0,
+          strokeWeight: 4,
+          map: googleMapInstance.current,
+        });
+
+        // Clean floating ETA pill above dropoff pin via Google Maps OverlayView (Zero white card / X button)
+        if (routeInfo && (routeInfo.formattedDuration || routeInfo.durationMins)) {
+          const durationStr = routeInfo.formattedDuration || `${routeInfo.durationMins} mins`;
+          const distStr = `${routeInfo.distanceKm} km`;
+
+          if (google.maps.OverlayView) {
+            class EtaOverlay extends google.maps.OverlayView {
+              private div: HTMLDivElement | null = null;
+              private pos: any;
+
+              constructor(pos: any) {
+                super();
+                this.pos = pos;
+              }
+
+              onAdd() {
+                const div = document.createElement('div');
+                div.style.position = 'absolute';
+                div.style.pointerEvents = 'none';
+                div.style.cursor = 'default';
+                div.style.zIndex = '999';
+                div.innerHTML = `
+                  <div style="background:#0F172A;color:#FFFFFF;padding:5px 12px;border-radius:14px;font-family:system-ui,-apple-system,sans-serif;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(0,0,0,0.3);white-space:nowrap;border:1.5px solid rgba(255,255,255,0.25);transform:translate(-50%, -100%) translateY(-54px);">
+                    <span style="color:#34D399;font-size:12px;line-height:1;">●</span>
+                    <span>${durationStr}</span>
+                    <span style="color:#94A3B8;font-size:11px;font-weight:600;">(${distStr})</span>
+                  </div>
+                `;
+                this.div = div;
+                const panes = this.getPanes();
+                panes?.floatPane?.appendChild(div);
+              }
+
+              draw() {
+                const projection = this.getProjection();
+                if (!projection || !this.div) return;
+                const pixel = projection.fromLatLngToDivPixel(this.pos);
+                if (pixel) {
+                  this.div.style.left = `${pixel.x}px`;
+                  this.div.style.top = `${pixel.y}px`;
+                }
+              }
+
+              onRemove() {
+                if (this.div?.parentNode) {
+                  this.div.parentNode.removeChild(this.div);
+                  this.div = null;
+                }
+              }
+            }
+
+            const overlay = new EtaOverlay(dLatLng);
+            overlay.setMap(googleMapInstance.current);
+            etaWindowRef.current = overlay;
+          }
+        }
+
+        // Refine Google Map bounds to show the entire real road route
+        const bounds = new google.maps.LatLngBounds();
+        roadPath.forEach((pt) => bounds.extend(new google.maps.LatLng(pt.lat, pt.lng)));
+        googleMapInstance.current.fitBounds(bounds, {
+          top: 90,
+          bottom: safeBottomPadding,
+          left: 50,
+          right: 50,
+        });
+      });
     } else {
-      googleMapInstance.current.setCenter(pLatLng);
+      // In home/idle view: Center slightly south so the "You are here" pin sits in the visible upper half of screen
+      const latOffset = 0.0035;
+      googleMapInstance.current.setCenter(new google.maps.LatLng(pickupPoint.lat - latOffset, pickupPoint.lng));
       googleMapInstance.current.setZoom(16);
     }
   };
+
+  const onMapClickRef = useRef(onMapClick);
+  onMapClickRef.current = onMapClick;
 
   // Initialize Live Google Map on Web
   useEffect(() => {
     if (Platform.OS !== 'web') return;
 
+    // Inject clean styling for Google Maps InfoWindows (removes default white balloon & 'X' close button)
+    const styleId = 'gm-clean-infowindow-style';
+    if (typeof document !== 'undefined' && !document.getElementById(styleId)) {
+      const styleEl = document.createElement('style');
+      styleEl.id = styleId;
+      styleEl.innerHTML = `
+        .gm-style-iw-c {
+          background: transparent !important;
+          box-shadow: none !important;
+          padding: 0 !important;
+          border-radius: 0 !important;
+        }
+        .gm-style-iw-d {
+          overflow: visible !important;
+          padding: 0 !important;
+        }
+        .gm-style-iw-tc, .gm-ui-hover-effect {
+          display: none !important;
+        }
+      `;
+      document.head.appendChild(styleEl);
+    }
+
     let isMounted = true;
 
     const initMap = () => {
       const google = (globalThis as any).google;
-      if (!isMounted || !google?.maps || !mapDivRef.current) return;
+      if (!isMounted || !google?.maps?.Map || !mapDivRef.current) return;
+
+      // Disarm legacy billing-gated Geocoder calls on window
+      if (google.maps?.Geocoder) {
+        google.maps.Geocoder.prototype.geocode = function (_req: any, cb: any) {
+          if (typeof cb === 'function') cb([], 'OK');
+          return Promise.resolve({ results: [] });
+        };
+      }
 
       try {
         if (!googleMapInstance.current) {
+          const initialCenterLat =
+            isDriver || isPinModeRef.current || destPoint
+              ? pickupPoint.lat
+              : pickupPoint.lat - 0.0035;
           googleMapInstance.current = new google.maps.Map(mapDivRef.current, {
-            center: { lat: pickupPoint.lat, lng: pickupPoint.lng },
+            center: { lat: initialCenterLat, lng: pickupPoint.lng },
             zoom: 16,
             disableDefaultUI: true,
             zoomControl: false,
@@ -342,6 +712,72 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
             styles: KERALA_MAP_STYLE,
           });
 
+          // Uber & Rapido center pin drag interaction: Lift pin while moving
+          googleMapInstance.current.addListener('dragstart', () => {
+            if (isPinModeRef.current) {
+              liftPin();
+            }
+          });
+
+          // Map idle: Drop pin and reverse-geocode the center location
+          googleMapInstance.current.addListener('idle', async () => {
+            if (isPinModeRef.current) {
+              dropPin();
+              const center = googleMapInstance.current.getCenter();
+              if (!center) return;
+              const lat = center.lat();
+              const lng = center.lng();
+
+              let fullAddress = '';
+              try {
+                fullAddress = await reverseGeocode({ latitude: lat, longitude: lng });
+              } catch {}
+
+              let title = 'Pinned Location';
+              let subtitle = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+              if (fullAddress && !fullAddress.includes(lat.toFixed(4))) {
+                const parts = fullAddress.split(',');
+                title = parts[0]?.trim() || fullAddress;
+                subtitle = parts.slice(1, 4).join(',').trim() || fullAddress;
+              } else {
+                const nearest = findNearestOrFormatLocation(lat, lng);
+                title = nearest.title;
+                subtitle = nearest.subtitle || subtitle;
+              }
+
+              let distanceKm: number | undefined;
+              let durationMins: number | undefined;
+              try {
+                const routeData = await calculateDrivingRoute(
+                  { latitude: pickupPoint.lat, longitude: pickupPoint.lng },
+                  { latitude: lat, longitude: lng }
+                );
+                if (routeData) {
+                  distanceKm = routeData.distanceKm;
+                  durationMins = routeData.durationMins;
+                }
+              } catch {}
+
+              onMapClickRef.current?.({
+                title,
+                subtitle,
+                lat,
+                lng,
+                distanceKm,
+                durationMins,
+              });
+            }
+          });
+
+          // Click anywhere on map: Smoothly pan center to clicked point like Uber
+          mapClickListenerRef.current = googleMapInstance.current.addListener('click', (event: any) => {
+            if (!event?.latLng) return;
+            if (isPinModeRef.current) {
+              liftPin();
+              googleMapInstance.current.panTo(event.latLng);
+            }
+          });
+
           syncGoogleMapRoute();
         }
       } catch (e) {
@@ -349,8 +785,15 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
       }
     };
 
+    const checkAndInit = () => {
+      const g = (globalThis as any).google;
+      if (g?.maps?.Map) {
+        initMap();
+      }
+    };
+
     const google = (globalThis as any).google;
-    if (google?.maps) {
+    if (google?.maps?.Map) {
       initMap();
     } else {
       const scriptId = 'google-maps-sdk-script';
@@ -359,24 +802,70 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
       if (!script) {
         script = document.createElement('script');
         script.id = scriptId;
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,geometry`;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,geometry,marker`;
         script.async = true;
         script.defer = true;
         document.head.appendChild(script);
       }
 
-      script.addEventListener('load', initMap);
+      script.addEventListener('load', checkAndInit);
+
+      // Safe polling in case script loaded before event listener was attached
+      const pollInterval = setInterval(() => {
+        if ((globalThis as any).google?.maps?.Map) {
+          clearInterval(pollInterval);
+          initMap();
+        }
+      }, 150);
+
+      setTimeout(() => clearInterval(pollInterval), 8000);
     }
 
     return () => {
       isMounted = false;
+      if (mapClickListenerRef.current && (globalThis as any).google?.maps?.event) {
+        (globalThis as any).google.maps.event.removeListener(mapClickListenerRef.current);
+      }
+      if (etaWindowRef.current) {
+        if (typeof etaWindowRef.current.setMap === 'function') {
+          etaWindowRef.current.setMap(null);
+        } else if (typeof etaWindowRef.current.close === 'function') {
+          etaWindowRef.current.close();
+        }
+        etaWindowRef.current = null;
+      }
+      if (directionsRendererRef.current) {
+        directionsRendererRef.current.setMap(null);
+        directionsRendererRef.current = null;
+      }
+      if (routePolylineRef.current) {
+        routePolylineRef.current.setMap(null);
+        routePolylineRef.current = null;
+      }
+      if (routeCasingPolylineRef.current) {
+        routeCasingPolylineRef.current.setMap(null);
+        routeCasingPolylineRef.current = null;
+      }
+      if (pickupMarkerRef.current) {
+        pickupMarkerRef.current.setMap(null);
+        pickupMarkerRef.current = null;
+      }
+      if (destMarkerRef.current) {
+        destMarkerRef.current.setMap(null);
+        destMarkerRef.current = null;
+      }
     };
   }, []);
 
-  // Update route on prop change
+  // Update route and cursor on prop change
   useEffect(() => {
+    if (googleMapInstance.current) {
+      googleMapInstance.current.setOptions({
+        draggableCursor: isPinMode ? 'crosshair' : null,
+      });
+    }
     syncGoogleMapRoute();
-  }, [activeDestination, pickupLocation]);
+  }, [activeDestination, pickupLocation, pickupCoords, pinnedPoint, destinationPoint, destinationCoords, isPinMode]);
 
   return (
     <View
@@ -410,10 +899,47 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
         />
       )}
 
+      {/* ── Uber & Rapido Fixed Interactive Center Pin ── */}
+      {isPinMode && (
+        <View pointerEvents="none" style={styles.centerPinContainer}>
+          <Animated.View
+            style={[
+              styles.centerPinPill,
+              { transform: [{ translateY: pinBounceAnim }] },
+            ]}
+          >
+            <Text style={styles.centerPinPillText} numberOfLines={1}>
+              {pinnedPoint?.title || 'Dropoff Location'}
+            </Text>
+            <View style={styles.centerPinPillPointer} />
+          </Animated.View>
+
+          <Animated.View
+            style={[
+              styles.centerPinIconWrap,
+              { transform: [{ translateY: pinBounceAnim }] },
+            ]}
+          >
+            <Icon library="Ionicons" name="location-sharp" size={46} color="#DC2626" />
+            <View style={styles.centerPinHole} />
+          </Animated.View>
+
+          <Animated.View
+            style={[
+              styles.centerPinShadow,
+              {
+                transform: [{ scale: pinShadowScale }],
+                opacity: pinShadowOpacity,
+              },
+            ]}
+          />
+        </View>
+      )}
+
       {/* ── Overlaid Interactive Markers & Vehicle Layer ── */}
       <View style={styles.overlayLayer} pointerEvents="box-none">
-        {/* Customer Mode: "Pickup Point >" Pin Callout */}
-        {!isDriver && (
+        {/* Customer Mode: "Pickup Point >" Pin Callout & Destination Marker (Native mobile fallback only) */}
+        {!isDriver && Platform.OS !== 'web' && (
           <View style={[styles.pickupPointRoot, { top: pickupPoint.top, left: pickupPoint.left }]}>
             <View style={styles.calloutPill}>
               <Text style={styles.calloutText} numberOfLines={1}>
@@ -434,8 +960,8 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
           </View>
         )}
 
-        {/* Customer Mode: Destination Marker */}
-        {!isDriver && destPoint && (
+        {/* Customer Mode: Destination Marker (Native mobile fallback only) */}
+        {!isDriver && Platform.OS !== 'web' && destPoint && (
           <View
             style={[
               styles.destinationMarkerRoot,
@@ -536,28 +1062,7 @@ const KeralaMapBackground: React.FC<KeralaMapBackgroundProps> = ({
           </>
         )}
 
-        {/* Live Moving Vehicles Stationed on Kothamangalam Roads */}
-        {showVehicles && (
-          <>
-            {/* White car on Kozhippilly road */}
-            <MapVehicle type="car" rotation="-26deg" style={{ top: SCREEN_HEIGHT * 0.14 + offsetY, left: SCREEN_WIDTH * 0.27 }} />
 
-            {/* White car crossing bridge over river */}
-            <MapVehicle type="car" rotation="32deg" style={{ top: SCREEN_HEIGHT * 0.14 + offsetY, right: SCREEN_WIDTH * 0.17 }} />
-
-            {/* Green sports bike on hostel road */}
-            <MapVehicle type="bike" rotation="-15deg" style={{ top: SCREEN_HEIGHT * 0.22 + offsetY, right: SCREEN_WIDTH * 0.08 }} />
-
-            {/* Auto rickshaw near college junction */}
-            <MapVehicle type="auto" rotation="-10deg" style={{ top: SCREEN_HEIGHT * 0.26 + offsetY, right: SCREEN_WIDTH * 0.14 }} />
-
-            {/* White car on residential road */}
-            <MapVehicle type="car" rotation="30deg" style={{ top: SCREEN_HEIGHT * 0.26 + offsetY, left: SCREEN_WIDTH * 0.18 }} />
-
-            {/* Auto rickshaw below pickup point */}
-            <MapVehicle type="auto" rotation="65deg" style={{ top: SCREEN_HEIGHT * 0.32 + offsetY, left: SCREEN_WIDTH * 0.32 }} />
-          </>
-        )}
       </View>
     </View>
   );
@@ -576,6 +1081,8 @@ const styles = StyleSheet.create({
   },
   googleMapDiv: {
     ...StyleSheet.absoluteFill,
+    width: '100%',
+    height: '100%',
     zIndex: 2,
   },
   overlayLayer: {
@@ -946,6 +1453,63 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     ...Shadows.md,
+  },
+  centerPinContainer: {
+    position: 'absolute',
+    top: '40%',
+    left: '50%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 35,
+    transform: [{ translateX: -80 }, { translateY: -44 }],
+    width: 160,
+  },
+  centerPinPill: {
+    backgroundColor: '#0F172A',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+    ...Shadows.md,
+  },
+  centerPinPillText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  centerPinPillPointer: {
+    position: 'absolute',
+    bottom: -4,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 5,
+    borderRightWidth: 5,
+    borderTopWidth: 5,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: '#0F172A',
+  },
+  centerPinIconWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  centerPinHole: {
+    position: 'absolute',
+    top: 13,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#FFFFFF',
+  },
+  centerPinShadow: {
+    width: 18,
+    height: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    marginTop: -2,
   },
 });
 

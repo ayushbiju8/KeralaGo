@@ -38,6 +38,8 @@ export { default as ProgressBar } from './ProgressBar';
 export type { ProgressBarProps } from './ProgressBar';
 
 export { default as KeralaMapBackground } from './KeralaMapBackground';
+export type { KeralaMapBackgroundProps, LocationPoint } from './KeralaMapBackground';
+export { getLocationPoint, findNearestOrFormatLocation, fetchRoadRoute, KNOWN_LOCATIONS } from './KeralaMapBackground';
 export { default as SheetDecorativeWave } from './SheetDecorativeWave';
 
 export { default as DriverHeroCarBanner } from './DriverHeroCarBanner';
@@ -46,3 +48,15 @@ export type { DriverHeroCarBannerProps } from './DriverHeroCarBanner';
 export { default as SwipeButton } from './SwipeButton';
 export type { SwipeButtonProps } from './SwipeButton';
 
+export {
+  ServiceCategorySkeleton,
+  ServiceGridSkeleton,
+  TripItemSkeleton,
+  RideOptionSkeleton,
+  StatCardSkeleton,
+  VehicleCardSkeleton,
+  WalletCardSkeleton,
+} from './SkeletonPresets';
+
+export { default as PlacesAutocompleteInput } from './PlacesAutocompleteInput';
+export type { PlacesAutocompleteInputProps } from './PlacesAutocompleteInput';

@@ -5,6 +5,7 @@ import { BottomTabBar, TabItem } from '../../components/organisms';
 import CustomerHomeView from './views/CustomerHomeView';
 import CustomerTripsView from './views/CustomerTripsView';
 import CustomerProfileView from './views/CustomerProfileView';
+import CustomerWalletView from './views/CustomerWalletView';
 import { Colors } from '../../constants/theme';
 
 /**
@@ -14,6 +15,7 @@ import { Colors } from '../../constants/theme';
 const CUSTOMER_TABS: TabItem[] = [
   { id: 'home', label: 'Home', iconName: 'home', iconNameInactive: 'home-outline' },
   { id: 'bookings', label: 'Bookings', iconName: 'bag-handle', iconNameInactive: 'bag-handle-outline' },
+  { id: 'wallet', label: 'Wallet', iconName: 'wallet', iconNameInactive: 'wallet-outline' },
   { id: 'profile', label: 'Profile', iconName: 'person', iconNameInactive: 'person-outline' },
 ];
 
@@ -35,12 +37,15 @@ const CustomerHomePage: React.FC = () => {
         );
       case 'bookings':
         return <CustomerTripsView />;
+      case 'wallet':
+        return <CustomerWalletView />;
       case 'profile':
         return (
           <CustomerProfileView
             onLogout={logout}
             onToggleRole={user?.role === 'DRIVER' ? toggleRole : undefined}
             currentRole={user?.role}
+            onNavigateToWallet={() => setActiveTab('wallet')}
           />
         );
       default:

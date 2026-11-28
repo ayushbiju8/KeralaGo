@@ -7,11 +7,12 @@
  * Sizes: xs (24) | sm (32) | md (44) | lg (64) | xl (88)
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 import Typography from './Typography';
 import Icon from './Icon';
+import Skeleton from './Skeleton';
 import { Colors, AvatarSize, AvatarSizeKey, Radii } from '../../constants/theme';
 
 export interface AvatarProps {
@@ -45,10 +46,15 @@ const Avatar: React.FC<AvatarProps> = ({
   verified = false,
   style,
 }) => {
+  const [imageLoading, setImageLoading] = useState<boolean>(true);
+  const [imageError, setImageError] = useState<boolean>(false);
+
   const diameter = AvatarSize[size];
   const fontSize = Math.round(diameter * 0.35);
   const dotSize = Math.max(10, Math.round(diameter * 0.22));
   const initials = name ? getInitials(name) : '?';
+
+  const shouldRenderImage = !!src && !imageError;
 
   return (
     <View style={[styles.wrapper, style]}>
@@ -58,13 +64,26 @@ const Avatar: React.FC<AvatarProps> = ({
           { width: diameter, height: diameter, borderRadius: diameter / 2 },
         ]}
       >
-        {src ? (
-          <Image
-            source={typeof src === 'string' ? { uri: src } : src}
-            style={{ width: diameter, height: diameter, borderRadius: diameter / 2 }}
-            contentFit="cover"
-            transition={200}
-          />
+        {shouldRenderImage ? (
+          <>
+            {imageLoading && (
+              <View style={StyleSheet.absoluteFill}>
+                <Skeleton width={diameter} height={diameter} variant="circle" colorScheme="mint" />
+              </View>
+            )}
+            <Image
+              source={typeof src === 'string' ? { uri: src } : src}
+              style={{ width: diameter, height: diameter, borderRadius: diameter / 2 }}
+              contentFit="cover"
+              transition={200}
+              onLoadStart={() => setImageLoading(true)}
+              onLoad={() => setImageLoading(false)}
+              onError={() => {
+                setImageLoading(false);
+                setImageError(true);
+              }}
+            />
+          </>
         ) : (
           <View
             style={[

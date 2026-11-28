@@ -17,6 +17,8 @@ import {
   SegmentTabs,
   SegmentOption,
   InfoRow,
+  StatCardSkeleton,
+  TripItemSkeleton,
 } from '../../components/molecules';
 import {
   NavigationHeader,
@@ -55,6 +57,7 @@ const DriverEarningsPage: React.FC<DriverEarningsPageProps> = ({
 }) => {
   const [selectedSegment, setSelectedSegment] = useState<string>('daily');
   const [earningsData, setEarningsData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -98,14 +101,24 @@ const DriverEarningsPage: React.FC<DriverEarningsPageProps> = ({
           />
         </View>
 
-        {/* ── Main Earnings Card with Chart ── */}
-        <Card style={styles.mainCard}>
-          <Typography variant="body2" weight="bold" color={Colors.textPrimary} align="center">
-            Today
-          </Typography>
-          <Typography variant="caption" color={Colors.textSecondary} align="center" style={{ marginTop: 2 }}>
-            16 Sep 2026
-          </Typography>
+        {isLoading ? (
+          <View style={{ marginHorizontal: Spacing.base, marginTop: Spacing.sm }}>
+            <StatCardSkeleton />
+            <View style={{ marginTop: Spacing.lg }}>
+              <TripItemSkeleton />
+              <TripItemSkeleton />
+            </View>
+          </View>
+        ) : (
+          <>
+            {/* ── Main Earnings Card with Chart ── */}
+            <Card style={styles.mainCard}>
+              <Typography variant="body2" weight="bold" color={Colors.textPrimary} align="center">
+                Today
+              </Typography>
+              <Typography variant="caption" color={Colors.textSecondary} align="center" style={{ marginTop: 2 }}>
+                16 Sep 2026
+              </Typography>
 
           {/* Large Earnings Value */}
           <Typography variant="h1" weight="bold" color={Colors.textPrimary} align="center" style={styles.earningsValue}>
@@ -198,7 +211,9 @@ const DriverEarningsPage: React.FC<DriverEarningsPageProps> = ({
             showDivider={false}
           />
         </Card>
-      </ScrollView>
+      </>
+    )}
+  </ScrollView>
 
       {/* ── Bottom Tab Bar ── */}
       {tabs.length > 0 && (

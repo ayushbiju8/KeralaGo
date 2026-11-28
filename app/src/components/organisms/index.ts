@@ -27,3 +27,12 @@ export type { DocumentVerificationRowProps, VerificationStatus } from './Documen
 
 export { default as BottomTabBar } from './BottomTabBar';
 export type { BottomTabBarProps, TabItem } from './BottomTabBar';
+
+export { default as NetworkLoadingOverlay } from './NetworkLoadingOverlay';
+export type { NetworkLoadingOverlayProps } from './NetworkLoadingOverlay';
+
+export { default as AnimatedCarMarker } from './AnimatedCarMarker';
+export type { AnimatedCarMarkerProps } from './AnimatedCarMarker';
+
+export { default as RouteMapView } from './RouteMapView';
+export type { RouteMapViewProps } from './RouteMapView';

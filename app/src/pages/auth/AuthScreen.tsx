@@ -27,9 +27,13 @@ interface PresetAccount {
 }
 
 const PRESET_ACCOUNTS: PresetAccount[] = [
-  { label: 'Arun Kumar', identifier: '9847012345', channel: 'MOBILE', role: 'USER', desc: 'Customer' },
-  { label: 'Suresh Pillai', identifier: '9447198765', channel: 'MOBILE', role: 'DRIVER', desc: 'Driver' },
-  { label: 'Admin Ops', identifier: '9999900000', channel: 'MOBILE', role: 'ADMIN', desc: 'Superuser' },
+  { label: 'Demo Rider', identifier: '9999999999', channel: 'MOBILE', role: 'USER', desc: 'Mock (OTP: 9999)' },
+  { label: 'Pink Cab Rider', identifier: '9800000002', channel: 'MOBILE', role: 'USER', desc: 'Female (OTP: 9999)' },
+  { label: 'Male Rider', identifier: '9800000001', channel: 'MOBILE', role: 'USER', desc: 'Male (OTP: 9999)' },
+  { label: 'Demo Driver', identifier: '9999999996', channel: 'MOBILE', role: 'DRIVER', desc: 'Driver (OTP: 9999)' },
+  { label: 'Arun Kumar', identifier: '9847012345', channel: 'MOBILE', role: 'USER', desc: 'Customer (OTP: 9999)' },
+  { label: 'Suresh Pillai', identifier: '9447198765', channel: 'MOBILE', role: 'DRIVER', desc: 'Driver (OTP: 9999)' },
+  { label: 'Admin Ops', identifier: '9999900000', channel: 'MOBILE', role: 'ADMIN', desc: 'Superuser (OTP: 9999)' },
   { label: 'Verified Gmail', identifier: 'couplespaceofficial@gmail.com', channel: 'EMAIL', role: 'USER', desc: 'Gmail SMTP' },
 ];
 
@@ -110,7 +114,7 @@ const AuthScreen: React.FC = () => {
           }
           setInfoMessage(res.message || `Code sent to +91 ${cleanPhone}`);
           setDemoHint(res.dev_otp || '');
-          setOtpCode(''); // Clean input, wait for user entry
+          setOtpCode(res.dev_otp || ''); // Auto-fills mock OTP if available
           setStep('OTP');
           setResendTimer(30);
         } else {

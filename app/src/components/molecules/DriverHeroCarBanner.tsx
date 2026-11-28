@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, StyleSheet, Image, Dimensions, TouchableOpacity, ViewStyle } from 'react-native';
+import { View, StyleSheet, Dimensions, TouchableOpacity, ViewStyle } from 'react-native';
+import ShimmerImage from '../atoms/ShimmerImage';
 import Icon from '../atoms/Icon';
 import Typography from '../atoms/Typography';
 import Switch from '../atoms/Switch';
@@ -124,10 +125,11 @@ const DriverHeroCarBanner: React.FC<DriverHeroCarBannerProps> = ({
       {/* ── Optional Center Hero Car Illustration ── */}
       {showCar && (
         <View style={styles.carContainer}>
-          <Image
+          <ShimmerImage
             source={require('../../../assets/images/white_sedan.jpg')}
             style={styles.carImage}
             resizeMode="contain"
+            fallbackIconName="car-sport"
           />
           {/* Ground Radial Shadow */}
           <View style={styles.groundShadow} />

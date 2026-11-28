@@ -8,6 +8,10 @@ import logging
 import requests
 from django.conf import settings
 
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
 logger = logging.getLogger(__name__)
 
 WIDGET_API_BASE = "https://api.msg91.com/api/v5/widget"
@@ -25,9 +29,32 @@ def clean_mobile_for_msg91(raw_phone: str) -> str:
     return digits
 
 
+def get_msg91_credentials() -> tuple[str, str, str, str]:
+    """
+    Retrieves MSG91 credentials from settings, dynamically hot-reloading
+    from backend/.env if not present in memory.
+    """
+    authkey = getattr(settings, 'MSG91_AUTH_KEY', '').strip()
+    widget_id = getattr(settings, 'MSG91_WIDGET_ID', '').strip()
+    template_id = getattr(settings, 'MSG91_OTP_TEMPLATE_ID', '').strip()
+    sender_id = getattr(settings, 'MSG91_SENDER_ID', '').strip()
+
+    if not authkey or not widget_id:
+        env_path = getattr(settings, 'BASE_DIR', None)
+        if env_path:
+            load_dotenv(Path(env_path) / '.env', override=True)
+            authkey = os.getenv('MSG91_AUTH_KEY', authkey).strip()
+            widget_id = os.getenv('MSG91_WIDGET_ID', widget_id).strip()
+            template_id = os.getenv('MSG91_OTP_TEMPLATE_ID', template_id).strip()
+            sender_id = os.getenv('MSG91_SENDER_ID', sender_id).strip()
+
+    return authkey, widget_id, template_id, sender_id
+
+
 def is_msg91_configured() -> bool:
     """Returns True if MSG91_AUTH_KEY is provided in settings/env."""
-    return bool(getattr(settings, 'MSG91_AUTH_KEY', None))
+    authkey, _, _, _ = get_msg91_credentials()
+    return bool(authkey)
 
 
 def send_msg91_otp(mobile: str, otp_code: str = None) -> dict:
@@ -35,9 +62,7 @@ def send_msg91_otp(mobile: str, otp_code: str = None) -> dict:
     Sends OTP using MSG91 SendOTP Widget API or direct API.
     Does NOT return fake success when MSG91 encounters an error.
     """
-    authkey = getattr(settings, 'MSG91_AUTH_KEY', '').strip()
-    widget_id = getattr(settings, 'MSG91_WIDGET_ID', '').strip()
-    template_id = getattr(settings, 'MSG91_OTP_TEMPLATE_ID', '').strip()
+    authkey, widget_id, template_id, _ = get_msg91_credentials()
     clean_mobile = clean_mobile_for_msg91(mobile)
 
     if not authkey:
@@ -147,8 +172,7 @@ def verify_msg91_otp(mobile: str, otp: str, req_id: str = None) -> dict:
     Verifies user OTP against MSG91 Widget verification gateway.
     POST https://api.msg91.com/api/v5/widget/verifyOtp
     """
-    authkey = getattr(settings, 'MSG91_AUTH_KEY', '').strip()
-    widget_id = getattr(settings, 'MSG91_WIDGET_ID', '').strip()
+    authkey, widget_id, _, _ = get_msg91_credentials()
     clean_mobile = clean_mobile_for_msg91(mobile)
 
     if not authkey:

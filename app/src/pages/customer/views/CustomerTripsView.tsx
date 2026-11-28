@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -7,12 +7,12 @@ import {
   TextInput,
   Alert,
   Platform,
-  ActivityIndicator,
+  Share,
 } from 'react-native';
 import { fetchCustomerTrips } from '../../../services/tripService';
 import { ListScreenTemplate, ModalTemplate } from '../../../components/templates';
 import { NavigationHeader } from '../../../components/organisms';
-import { SegmentTabs } from '../../../components/molecules';
+import { SegmentTabs, TripItemSkeleton } from '../../../components/molecules';
 import {
   Typography,
   Badge,
@@ -56,7 +56,6 @@ const REPORT_REASONS = [
 const CustomerTripsView: React.FC = () => {
   const [selectedFilter, setSelectedFilter] = useState<string>('all');
   const [selectedTripForReceipt, setSelectedTripForReceipt] = useState<TripItem | null>(null);
-
   // Reporting driver state
   const [reportingTrip, setReportingTrip] = useState<TripItem | null>(null);
   const [reportReason, setReportReason] = useState<string>(REPORT_REASONS[0]);
@@ -102,10 +101,79 @@ const CustomerTripsView: React.FC = () => {
   const filteredTrips = trips;
 
   const handleDownloadInvoice = (tripId: string) => {
-    Alert.alert(
-      'Receipt Downloaded',
-      `Official GST Invoice for Booking ${tripId} has been saved to your downloads.`
-    );
+    const trip = trips.find((t: any) => t.id === tripId) || selectedTripForReceipt;
+    const numericFare = parseFloat((trip?.fare || '140').replace(/[^0-9.]/g, '')) || 140;
+    const cgst = (numericFare * 0.025).toFixed(2);
+    const sgst = (numericFare * 0.025).toFixed(2);
+    const base = (numericFare - parseFloat(cgst) - parseFloat(sgst)).toFixed(2);
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const invoiceHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>KeralaGo Tax Invoice - ${tripId}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 32px; color: #0F172A; max-width: 550px; margin: auto; }
+            .header { display: flex; justify-content: space-between; border-bottom: 2px solid #16A34A; padding-bottom: 16px; margin-bottom: 20px; }
+            .logo { font-size: 24px; font-weight: bold; color: #16A34A; }
+            .badge { background: #DCFCE7; color: #166534; padding: 4px 10px; border-radius: 99px; font-weight: 600; font-size: 12px; }
+            .section { margin-bottom: 16px; background: #F8FAFC; padding: 14px; border-radius: 12px; }
+            .row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 14px; }
+            .total { font-size: 18px; font-weight: bold; color: #16A34A; border-top: 1px dashed #CBD5E1; padding-top: 10px; margin-top: 10px; }
+            .footer { text-align: center; font-size: 12px; color: #64748B; margin-top: 30px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <div class="logo">🌴 KeralaGo</div>
+              <div style="font-size: 12px; color: #64748B; margin-top: 4px;">God's Own Ride Aggregator</div>
+            </div>
+            <div style="text-align: right;">
+              <span class="badge">PAID</span>
+              <div style="font-size: 12px; color: #64748B; margin-top: 6px;">Invoice: ${tripId}</div>
+            </div>
+          </div>
+          <div class="section">
+            <div class="row"><strong>Date:</strong> <span>${trip?.timeAgo || 'Recently'}</span></div>
+            <div class="row"><strong>Vehicle:</strong> <span>${trip?.vehicleType || 'Auto'} (${trip?.carPlate || 'KL 07 AB 1234'})</span></div>
+            <div class="row"><strong>Driver:</strong> <span>${trip?.driverName || 'Rijin S'}</span></div>
+          </div>
+          <div class="section">
+            <div class="row"><strong>Pickup:</strong> <span>${trip?.pickup || 'Pickup point'}</span></div>
+            <div class="row"><strong>Dropoff:</strong> <span>${trip?.dropoff || 'Dropoff point'}</span></div>
+            <div class="row"><strong>Distance:</strong> <span>${trip?.distance || '3.2 km'}</span></div>
+          </div>
+          <div class="section">
+            <div class="row"><span>Base Fare</span> <span>₹${base}</span></div>
+            <div class="row"><span>CGST (2.5%)</span> <span>₹${cgst}</span></div>
+            <div class="row"><span>SGST (2.5%)</span> <span>₹${sgst}</span></div>
+            <div class="row total"><span>Total Paid</span> <span>₹${numericFare}</span></div>
+          </div>
+          <div class="footer">
+            Kerala Motor Vehicles Dept (MVD) compliant GST invoice.<br/>
+            Thank you for traveling green with KeralaGo!
+          </div>
+        </body>
+        </html>
+      `;
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(invoiceHtml);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => printWindow.print(), 250);
+        return;
+      }
+    }
+
+    Share.share({
+      title: `KeralaGo GST Invoice - ${tripId}`,
+      message: `KeralaGo Tax Invoice\nBooking ID: ${tripId}\nAmount: ₹${numericFare}\nPickup: ${trip?.pickup}\nDropoff: ${trip?.dropoff}\nStatus: Paid\nGST: CGST 2.5% + SGST 2.5%`,
+    }).catch(() => {
+      Alert.alert('Invoice', `Official GST invoice for booking ${tripId} generated.`);
+    });
   };
 
   const handleSubmitReport = () => {
@@ -139,15 +207,14 @@ const CustomerTripsView: React.FC = () => {
       }
     >
       <View style={styles.listContainer}>
-        {isLoading && (
-          <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-            <ActivityIndicator size="large" color={Colors.primary} />
-            <Typography variant="body2" color="#64748B" style={{ marginTop: 10 }}>
-              Loading your trips...
-            </Typography>
-          </View>
-        )}
-        {!isLoading && filteredTrips.map((trip) => {
+        {isLoading ? (
+          <>
+            <TripItemSkeleton />
+            <TripItemSkeleton />
+            <TripItemSkeleton />
+            <TripItemSkeleton />
+          </>
+        ) : filteredTrips.map((trip) => {
           const isCompleted = trip.status === 'completed';
 
           return (
